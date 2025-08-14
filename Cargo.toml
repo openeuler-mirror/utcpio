@@ -1,0 +1,15 @@
+[workspace]
+members = ["gnu", "pax", "rmt"] 
+resolver = "2"
+
+[package]
+name = "utcpio"
+version = "0.1.0"
+authors = ["zhanghaidong  <zhanghaidong@uniontech.com>"]
+description = "A simple cpio implementation"
+edition = "2021"
+license = "GPL-2.0"
+
+[[bin]]
+name = "utcpio"
+path = "src/main.rs"
