@@ -1,6 +1,12 @@
 [package]
-name = "pax"
+name = "pax"               # 包名设为 pax，生成的库名为 libpax.a
 version = "0.1.0"
 edition = "2021"
+
+
+
+[lib]
+path = "lib.rs"
+crate-type = ["rlib"]  # 声明为静态库
 
 [dependencies]
