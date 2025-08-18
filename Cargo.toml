@@ -1,5 +1,5 @@
 [workspace]
-members = ["gnu", "pax", "rmt"] 
+members = ["gnu", "pax", ] 
 resolver = "2"
 
 [package]
