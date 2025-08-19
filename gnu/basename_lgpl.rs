@@ -85,3 +85,78 @@ fn has_device(name: &str) -> bool {
 fn is_slash(c: char) -> bool {
     c == '/' || c == '\\'
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_last_component() {
+        // 测试普通路径
+        assert_eq!(last_component("a/b/c"), "c");
+        assert_eq!(last_component("a/b/c/"), "c");
+        assert_eq!(last_component("a\\b\\c"), "c");
+
+        // 测试带设备前缀的路径
+        assert_eq!(last_component("C:/a/b"), "b");
+        assert_eq!(last_component("C:\\a\\b"), "b");
+
+        // 测试根路径
+        assert_eq!(last_component("/"), "/");
+        assert_eq!(last_component("\\"), "\\");
+        assert_eq!(last_component("C:/"), "/");
+
+        // 测试空路径
+        assert_eq!(last_component(""), "");
+    }
+
+    #[test]
+    fn test_base_len() {
+        // 测试普通路径
+        assert_eq!(base_len("a/b/c"), 5);
+        assert_eq!(base_len("a/b/c/"), 5);
+        assert_eq!(base_len("a\\b\\c"), 5);
+
+        // 测试带斜杠结尾的路径
+        assert_eq!(base_len("a/b/"), 3);
+        assert_eq!(base_len("a/b////"), 3);
+
+        // 测试带设备前缀的路径
+        assert_eq!(base_len("C:/a/b"), 6);
+        assert_eq!(base_len("C:\\a\\b"), 6);
+        assert_eq!(base_len("C:/"), 2);
+
+        // 测试双斜杠根路径
+        assert_eq!(base_len("//"), 2);
+
+        // 测试空路径
+        assert_eq!(base_len(""), 0);
+    }
+
+    #[test]
+    fn test_file_system_prefix_len() {
+        // 测试带设备前缀的路径
+        assert_eq!(file_system_prefix_len("C:"), 2);
+        assert_eq!(file_system_prefix_len("c:"), 2);
+        assert_eq!(file_system_prefix_len("Z:/path"), 2);
+
+        // 测试不带设备前缀的路径
+        assert_eq!(file_system_prefix_len("/path"), 0);
+        assert_eq!(file_system_prefix_len("path"), 0);
+        assert_eq!(file_system_prefix_len(""), 0);
+    }
+
+    #[test]
+    fn test_has_device() {
+        // 有效设备前缀
+        assert!(has_device("C:"));
+        assert!(has_device("c:"));
+        assert!(has_device("Z:/path"));
+
+        // 无效设备前缀
+        assert!(!has_device("1:"));
+        assert!(!has_device(":"));
+        assert!(!has_device("/path"));
+        assert!(!has_device(""));
+    }
+}
