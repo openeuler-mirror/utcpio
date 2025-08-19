@@ -6,4 +6,5 @@
 
 pub mod argp;
 pub mod basename_lgpl;
+pub mod dirname_lgpl;
 pub mod util;
