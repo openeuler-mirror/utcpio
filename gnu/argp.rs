@@ -200,3 +200,83 @@ pub struct ArgpState<'a> {
     pub out_stream: Option<&'a mut dyn Write>, // For information; initialized to stdout.
     pub pstate: Option<Vec<u8>>,               // Private, for use by argp.
 }
+
+impl<'a> Default for ArgpState<'a> {
+    fn default() -> Self {
+        ArgpState {
+            root_argp: None,
+            argc: 0,
+            argv: Vec::new(),
+            next: 0,
+            flags: 0,
+            arg_num: 0,
+            quoted: 0,
+            input: None,
+            child_inputs: Vec::new(),
+            hook: None,
+            name: String::new(),
+            err_stream: None,
+            out_stream: None,
+            pstate: None,
+        }
+    }
+}
+
+#[repr(C)]
+pub struct mtop {
+    pub mt_op: i32,
+    pub mt_count: i32,
+}
+
+#[repr(C)]
+pub struct mtget {
+    pub mt_type: c_long,
+    pub mt_resid: c_long,
+    pub mt_dsreg: c_long,
+    pub mt_gstat: c_long,
+    pub mt_erreg: c_long,
+    pub mt_fileno: i32,
+    pub mt_blkno: i32,
+}
+
+pub const ARGP_KEY_FINI: i32 = 0x1000007;
+pub const ARGP_KEY_SUCCESS: i32 = 0x1000004;
+pub const ARGP_KEY_ERROR: i32 = 0x1000005;
+
+// Possible KEY arguments to a help filter function.
+// const ARGP_KEY_HELP_PRE_DOC: u32 = 0x2000001; // Help text preceding options.
+// const ARGP_KEY_HELP_POST_DOC: u32 = 0x2000002; // Help text following options.
+// const ARGP_KEY_HELP_HEADER: u32 = 0x2000003; // Option header string.
+// const ARGP_KEY_HELP_EXTRA: u32 = 0x2000004; // After all other documentation; TEXT is NULL for this key.
+
+// // Explanatory note emitted when duplicate option arguments have been suppressed.
+// const ARGP_KEY_HELP_DUP_ARGS_NOTE: u32 = 0x2000005;
+// const ARGP_KEY_HELP_ARGS_DOC: u32 = 0x2000006; // Argument doc string.
+
+pub const ARGP_PARSE_ARGV0: u32 = 0x01;
+pub const ARGP_NO_ERRS: u32 = 0x02;
+pub const ARGP_NO_ARGS: u32 = 0x04;
+pub const ARGP_IN_ORDER: u32 = 0x08;
+pub const ARGP_NO_HELP: u32 = 0x10;
+pub const ARGP_NO_EXIT: u32 = 0x20;
+pub const ARGP_LONG_ONLY: u32 = 0x40;
+pub const ARGP_SILENT: u32 = ARGP_NO_EXIT | ARGP_NO_ERRS | ARGP_NO_HELP;
+
+// Flags for argp_help.
+pub const ARGP_HELP_USAGE: u32 = 0x01; // a Usage: message.
+pub const ARGP_HELP_SHORT_USAGE: u32 = 0x02; // " but don't actually print options.
+pub const ARGP_HELP_SEE: u32 = 0x04; // a "Try ... for more help" message.
+pub const ARGP_HELP_LONG: u32 = 0x08; // a long help message.
+pub const ARGP_HELP_PRE_DOC: u32 = 0x10; // doc string preceding long help.
+pub const ARGP_HELP_POST_DOC: u32 = 0x20; // doc string following long help.
+pub const ARGP_HELP_DOC: u32 = ARGP_HELP_PRE_DOC | ARGP_HELP_POST_DOC; // Combined doc flags.
+pub const ARGP_HELP_BUG_ADDR: u32 = 0x40; // bug report address
+pub const ARGP_HELP_LONG_ONLY: u32 = 0x80; // modify output appropriately to reflect ARGP_LONG_ONLY mode.
+pub const ARGP_HELP_EXIT_ERR: u32 = 0x100; // Call exit(1) instead of returning.
+pub const ARGP_HELP_EXIT_OK: u32 = 0x200; // Call exit(0) instead of returning.
+pub const ARGP_HELP_STD_ERR: u32 = ARGP_HELP_SEE | ARGP_HELP_EXIT_ERR;
+pub const ARGP_HELP_STD_USAGE: u32 = ARGP_HELP_SHORT_USAGE | ARGP_HELP_SEE | ARGP_HELP_EXIT_ERR;
+
+// The standard thing to do in response to a --help option.
+pub const ARGP_HELP_STD_HELP: u32 =
+    ARGP_HELP_SHORT_USAGE | ARGP_HELP_LONG | ARGP_HELP_EXIT_OK | ARGP_HELP_DOC | ARGP_HELP_BUG_ADDR;
