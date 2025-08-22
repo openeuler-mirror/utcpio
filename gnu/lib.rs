@@ -8,5 +8,6 @@ pub mod argp;
 pub mod argp_version_etc;
 pub mod basename_lgpl;
 pub mod dirname_lgpl;
+pub mod error;
 pub mod util;
 pub mod version_etc;
