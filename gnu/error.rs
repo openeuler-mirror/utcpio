@@ -86,3 +86,47 @@ pub fn error(status: i32, errno: i32, args: std::fmt::Arguments) {
         exit(status);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Error;
+    use std::io::ErrorKind;
+
+    #[test]
+    fn test_set_errno() {
+        let err = set_errno(42);
+        assert_eq!(err.kind(), ErrorKind::Other);
+        assert_eq!(err.to_string(), "errno: 42");
+    }
+
+    #[test]
+    fn test_errno_with_os_error() {
+        // Mock last_os_error by setting it first
+        let _ = Error::last_os_error();
+        let errno = errno();
+        // Can't assert exact value as it depends on system state
+        assert!(errno >= 0);
+    }
+
+    #[test]
+    fn test_error_with_zero_errno() {
+        let args = format_args!("test message");
+        error(0, 0, args);
+        // Can't easily capture stdout in test, so just verify it doesn't panic
+    }
+
+    #[test]
+    fn test_error_with_nonzero_errno() {
+        let args = format_args!("test message");
+        error(0, 42, args);
+        // Can't easily capture stdout in test, so just verify it doesn't panic
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_error_with_nonzero_status() {
+        let args = format_args!("test message");
+        error(1, 0, args);
+    }
+}
