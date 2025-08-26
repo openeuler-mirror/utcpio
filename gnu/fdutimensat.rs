@@ -59,3 +59,69 @@ pub fn timespec_from_systemtime(time: SystemTime) -> timespec {
         tv_nsec: duration.subsec_nanos() as libc::c_long,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::{File, OpenOptions};
+    use std::os::unix::io::AsRawFd;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn test_fdutimensat_with_file() {
+        let file = File::open("/dev/null").unwrap();
+        let now = SystemTime::now();
+        let ts = [timespec_from_systemtime(now), timespec_from_systemtime(now)];
+
+        let result = fdutimensat(Some(&file), -1, None, &ts, 0);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fdutimensat_with_file_name() {
+        let temp_file = "/tmp/test_file";
+        let _ = File::create(temp_file).unwrap();
+
+        let now = SystemTime::now();
+        let ts = [timespec_from_systemtime(now), timespec_from_systemtime(now)];
+
+        let result = fdutimensat(None, libc::AT_FDCWD, Some(temp_file), &ts, 0);
+        assert!(result.is_ok());
+
+        std::fs::remove_file(temp_file).unwrap();
+    }
+
+    #[test]
+    fn test_fdutimensat_with_file_fallback_to_file_name() {
+        let temp_file = "/tmp/test_file_fallback";
+        let file = File::create(temp_file).unwrap();
+        let now = SystemTime::now();
+        let ts = [timespec_from_systemtime(now), timespec_from_systemtime(now)];
+
+        // Force ENOSYS error
+        unsafe { *libc::__errno_location() = libc::ENOSYS };
+
+        let result = fdutimensat(Some(&file), libc::AT_FDCWD, Some(temp_file), &ts, 0);
+        assert!(result.is_ok());
+
+        std::fs::remove_file(temp_file).unwrap();
+    }
+
+    #[test]
+    fn test_fdutimensat_invalid_file_name() {
+        let now = SystemTime::now();
+        let ts = [timespec_from_systemtime(now), timespec_from_systemtime(now)];
+
+        let result = fdutimensat(None, libc::AT_FDCWD, Some("\0"), &ts, 0);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_timespec_from_systemtime() {
+        let time = UNIX_EPOCH + std::time::Duration::new(123456789, 987654321);
+        let ts = timespec_from_systemtime(time);
+
+        assert_eq!(ts.tv_sec, 123456789);
+        assert_eq!(ts.tv_nsec, 987654321);
+    }
+}
