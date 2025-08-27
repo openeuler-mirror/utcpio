@@ -12,6 +12,7 @@ pub mod error;
 pub mod fdutimensat;
 pub mod full_write;
 pub mod gettime;
+pub mod progname;
 pub mod safe_write;
 pub mod util;
 pub mod version_etc;
