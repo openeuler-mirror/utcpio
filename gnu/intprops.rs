@@ -149,3 +149,172 @@ impl BitWidth for u128 {
         128
     }
 }
+
+/// Extension trait for safe arithmetic operations with overflow checking
+pub trait SafeArith: Sized {
+    /// Performs addition with overflow checking
+    fn checked_add_ext(self, rhs: Self) -> Option<Self>;
+
+    /// Performs subtraction with overflow checking
+    fn checked_sub_ext(self, rhs: Self) -> Option<Self>;
+
+    /// Performs multiplication with overflow checking
+    fn checked_mul_ext(self, rhs: Self) -> Option<Self>;
+
+    /// Performs division with overflow checking
+    fn checked_div_ext(self, rhs: Self) -> Option<Self>;
+
+    /// Performs remainder with overflow checking
+    fn checked_rem_ext(self, rhs: Self) -> Option<Self>;
+
+    /// Performs left shift with overflow checking
+    fn checked_shl_ext(self, rhs: u32) -> Option<Self>;
+
+    /// Performs negation with overflow checking
+    fn checked_neg_ext(self) -> Option<Self>;
+}
+
+// Individual implementations for SafeArith
+impl SafeArith for i8 {
+    fn checked_add_ext(self, rhs: Self) -> Option<Self> {
+        self.checked_add(rhs)
+    }
+    fn checked_sub_ext(self, rhs: Self) -> Option<Self> {
+        self.checked_sub(rhs)
+    }
+    fn checked_mul_ext(self, rhs: Self) -> Option<Self> {
+        self.checked_mul(rhs)
+    }
+    fn checked_div_ext(self, rhs: Self) -> Option<Self> {
+        self.checked_div(rhs)
+    }
+    fn checked_rem_ext(self, rhs: Self) -> Option<Self> {
+        self.checked_rem(rhs)
+    }
+    fn checked_shl_ext(self, rhs: u32) -> Option<Self> {
+        self.checked_shl(rhs)
+    }
+    fn checked_neg_ext(self) -> Option<Self> {
+        self.checked_neg()
+    }
+}
+
+impl SafeArith for i16 {
+    fn checked_add_ext(self, rhs: Self) -> Option<Self> {
+        self.checked_add(rhs)
+    }
+    fn checked_sub_ext(self, rhs: Self) -> Option<Self> {
+        self.checked_sub(rhs)
+    }
+    fn checked_mul_ext(self, rhs: Self) -> Option<Self> {
+        self.checked_mul(rhs)
+    }
+    fn checked_div_ext(self, rhs: Self) -> Option<Self> {
+        self.checked_div(rhs)
+    }
+    fn checked_rem_ext(self, rhs: Self) -> Option<Self> {
+        self.checked_rem(rhs)
+    }
+    fn checked_shl_ext(self, rhs: u32) -> Option<Self> {
+        self.checked_shl(rhs)
+    }
+    fn checked_neg_ext(self) -> Option<Self> {
+        self.checked_neg()
+    }
+}
+
+impl SafeArith for i32 {
+    fn checked_add_ext(self, rhs: Self) -> Option<Self> {
+        self.checked_add(rhs)
+    }
+    fn checked_sub_ext(self, rhs: Self) -> Option<Self> {
+        self.checked_sub(rhs)
+    }
+    fn checked_mul_ext(self, rhs: Self) -> Option<Self> {
+        self.checked_mul(rhs)
+    }
+    fn checked_div_ext(self, rhs: Self) -> Option<Self> {
+        self.checked_div(rhs)
+    }
+    fn checked_rem_ext(self, rhs: Self) -> Option<Self> {
+        self.checked_rem(rhs)
+    }
+    fn checked_shl_ext(self, rhs: u32) -> Option<Self> {
+        self.checked_shl(rhs)
+    }
+    fn checked_neg_ext(self) -> Option<Self> {
+        self.checked_neg()
+    }
+}
+
+impl SafeArith for i64 {
+    fn checked_add_ext(self, rhs: Self) -> Option<Self> {
+        self.checked_add(rhs)
+    }
+    fn checked_sub_ext(self, rhs: Self) -> Option<Self> {
+        self.checked_sub(rhs)
+    }
+    fn checked_mul_ext(self, rhs: Self) -> Option<Self> {
+        self.checked_mul(rhs)
+    }
+    fn checked_div_ext(self, rhs: Self) -> Option<Self> {
+        self.checked_div(rhs)
+    }
+    fn checked_rem_ext(self, rhs: Self) -> Option<Self> {
+        self.checked_rem(rhs)
+    }
+    fn checked_shl_ext(self, rhs: u32) -> Option<Self> {
+        self.checked_shl(rhs)
+    }
+    fn checked_neg_ext(self) -> Option<Self> {
+        self.checked_neg()
+    }
+}
+
+impl SafeArith for i128 {
+    fn checked_add_ext(self, rhs: Self) -> Option<Self> {
+        self.checked_add(rhs)
+    }
+    fn checked_sub_ext(self, rhs: Self) -> Option<Self> {
+        self.checked_sub(rhs)
+    }
+    fn checked_mul_ext(self, rhs: Self) -> Option<Self> {
+        self.checked_mul(rhs)
+    }
+    fn checked_div_ext(self, rhs: Self) -> Option<Self> {
+        self.checked_div(rhs)
+    }
+    fn checked_rem_ext(self, rhs: Self) -> Option<Self> {
+        self.checked_rem(rhs)
+    }
+    fn checked_shl_ext(self, rhs: u32) -> Option<Self> {
+        self.checked_shl(rhs)
+    }
+    fn checked_neg_ext(self) -> Option<Self> {
+        self.checked_neg()
+    }
+}
+
+impl SafeArith for isize {
+    fn checked_add_ext(self, rhs: Self) -> Option<Self> {
+        self.checked_add(rhs)
+    }
+    fn checked_sub_ext(self, rhs: Self) -> Option<Self> {
+        self.checked_sub(rhs)
+    }
+    fn checked_mul_ext(self, rhs: Self) -> Option<Self> {
+        self.checked_mul(rhs)
+    }
+    fn checked_div_ext(self, rhs: Self) -> Option<Self> {
+        self.checked_div(rhs)
+    }
+    fn checked_rem_ext(self, rhs: Self) -> Option<Self> {
+        self.checked_rem(rhs)
+    }
+    fn checked_shl_ext(self, rhs: u32) -> Option<Self> {
+        self.checked_shl(rhs)
+    }
+    fn checked_neg_ext(self) -> Option<Self> {
+        self.checked_neg()
+    }
+}
