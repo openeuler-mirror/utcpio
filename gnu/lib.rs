@@ -14,6 +14,7 @@ pub mod full_write;
 pub mod gettime;
 pub mod intprops;
 pub mod progname;
+pub mod quotearg;
 pub mod safe_read;
 pub mod safe_write;
 pub mod util;
