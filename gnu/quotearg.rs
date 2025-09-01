@@ -97,3 +97,223 @@ pub fn set_custom_quoting(o: Option<&mut QuotingOptions>, left: &str, right: &st
     opt.left_quote = left.to_string();
     opt.right_quote = right.to_string();
 }
+
+fn quoting_options_from_style(style: QuotingStyle) -> QuotingOptions {
+    if style == QuotingStyle::Custom {
+        panic!("Custom style requires left and right quotes");
+    }
+    QuotingOptions {
+        style,
+        flags: QuotingFlags::empty(),
+        quote_these_too: [0; (u8::MAX as usize / 32) + 1],
+        left_quote: String::new(),
+        right_quote: String::new(),
+    }
+}
+
+fn quotearg_buffer_restyled(
+    buffer: &mut Vec<u8>,
+    buffersize: usize,
+    arg: &str,
+    argsize: usize,
+    style: QuotingStyle,
+    flags: QuotingFlags,
+    quote_these_too: &[u32; (u8::MAX as usize / 32) + 1],
+    left_quote: &[u8],
+    right_quote: &[u8],
+) -> usize {
+    let mut len = 0;
+    let elide_outer_quotes = flags.contains(QuotingFlags::ELIDE_OUTER_QUOTES);
+    let mut backslash_escapes = false;
+    let mut quote_string = None;
+    let mut quote_string_len = 0;
+
+    macro_rules! store {
+        ($c:expr) => {{
+            if len < buffersize {
+                if len < buffer.len() {
+                    buffer[len] = $c as u8;
+                } else {
+                    buffer.push($c as u8);
+                }
+            }
+            len += 1;
+        }};
+    }
+    match style {
+        QuotingStyle::C => {
+            if !elide_outer_quotes {
+                store!('"');
+            }
+            backslash_escapes = true;
+            quote_string = Some("\"");
+            quote_string_len = 1;
+        }
+        QuotingStyle::CMaybe => {
+            return quotearg_buffer_restyled(
+                buffer,
+                buffersize,
+                arg,
+                argsize,
+                QuotingStyle::C,
+                flags | QuotingFlags::ELIDE_OUTER_QUOTES,
+                quote_these_too,
+                left_quote,
+                right_quote,
+            );
+        }
+        QuotingStyle::Escape => {
+            backslash_escapes = true;
+        }
+        QuotingStyle::ShellAlways => {
+            if !elide_outer_quotes {
+                store!('\'');
+            }
+            quote_string = Some("'");
+            quote_string_len = 1;
+        }
+        QuotingStyle::Shell => {
+            return quotearg_buffer_restyled(
+                buffer,
+                buffersize,
+                arg,
+                argsize,
+                QuotingStyle::ShellAlways,
+                flags | QuotingFlags::ELIDE_OUTER_QUOTES,
+                quote_these_too,
+                left_quote,
+                right_quote,
+            );
+        }
+        QuotingStyle::ShellEscape => {
+            // backslash_escapes = true;
+            return quotearg_buffer_restyled(
+                buffer,
+                buffersize,
+                arg,
+                argsize,
+                QuotingStyle::Shell,
+                flags,
+                quote_these_too,
+                left_quote,
+                right_quote,
+            );
+        }
+        QuotingStyle::ShellEscapeAlways => {
+            // backslash_escapes = true;
+            return quotearg_buffer_restyled(
+                buffer,
+                buffersize,
+                arg,
+                argsize,
+                QuotingStyle::ShellAlways,
+                flags,
+                quote_these_too,
+                left_quote,
+                right_quote,
+            );
+        }
+        QuotingStyle::Literal => {}
+        QuotingStyle::Locale | QuotingStyle::CLocale => {
+            let lq = if left_quote.is_empty() {
+                "`"
+            } else {
+                std::str::from_utf8(left_quote).unwrap_or("`")
+            };
+            let rq = if right_quote.is_empty() {
+                "'"
+            } else {
+                std::str::from_utf8(right_quote).unwrap_or("`")
+            };
+            if !elide_outer_quotes {
+                for c in lq.bytes() {
+                    store!(c);
+                }
+            }
+            backslash_escapes = true;
+            quote_string_len = rq.len();
+            quote_string = Some(rq);
+        }
+        QuotingStyle::Custom => {
+            let lq = std::str::from_utf8(left_quote).unwrap_or("`");
+            let rq = std::str::from_utf8(right_quote).unwrap_or("`");
+            if !elide_outer_quotes {
+                for c in lq.bytes() {
+                    store!(c);
+                }
+            }
+            backslash_escapes = true;
+            quote_string = Some(rq);
+            quote_string_len = rq.len();
+        }
+    }
+
+    let arg_bytes = arg.as_bytes();
+    let argsize = if argsize == usize::MAX {
+        arg.len()
+    } else {
+        argsize
+    };
+    for i in 0..argsize {
+        let c = arg_bytes[i];
+        if backslash_escapes
+            && quote_string_len > 0
+            && i + quote_string_len <= arg.len()
+            && &arg[i..i + quote_string_len] == quote_string.unwrap()
+        {
+            if elide_outer_quotes {
+                panic!("Force outer quoting not implemented");
+            }
+            store!('\\');
+        }
+
+        match c as char {
+            '\0' => {
+                if backslash_escapes {
+                    store!('\\');
+                    store!('0');
+                } else if flags.contains(QuotingFlags::ELIDE_NULL_BYTES) {
+                    continue;
+                }
+            }
+            '\n' => {
+                if backslash_escapes {
+                    store!('\\');
+                    store!('n');
+                } else {
+                    store!(c);
+                }
+            }
+            '"' if style == QuotingStyle::C => {
+                store!('\\');
+                store!(c);
+            }
+            '\'' if style == QuotingStyle::ShellAlways => {
+                store!('\'');
+                store!('\\');
+                store!('\'');
+            }
+            c if backslash_escapes
+                && quote_these_too[c as usize / 32] & (1 << ((c as usize) % 32)) != 0 =>
+            {
+                store!('\\');
+                store!(c);
+            }
+            _ => store!(c),
+        }
+    }
+
+    if let Some(qs) = quote_string {
+        if !elide_outer_quotes {
+            for c in qs.bytes() {
+                store!(c);
+            }
+        }
+    }
+
+    if len < buffersize {
+        buffer.resize(len + 1, 0);
+        buffer[len] = 0;
+    }
+    len
+}
