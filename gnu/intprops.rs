@@ -318,3 +318,62 @@ impl SafeArith for isize {
         self.checked_neg()
     }
 }
+
+/// Calculates the maximum length of a string needed to represent an integer
+/// with the given number of bits
+pub const fn int_bits_strlen_bound(bits: u32) -> usize {
+    ((bits as usize * 146 + 484) / 485) as usize
+}
+
+/// Calculates the buffer size needed to represent an integer type,
+/// including the terminating null
+pub fn int_bufsize_bound<T: BitWidth + IsSigned>() -> usize {
+    let width = T::bit_width();
+    let signed = T::is_signed();
+    int_bits_strlen_bound(width - if signed { 1 } else { 0 }) + if signed { 1 } else { 0 } + 1
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_integer() {
+        assert!(i32::is_integer());
+        assert!(u64::is_integer());
+    }
+
+    #[test]
+    fn test_is_signed() {
+        assert!(i32::is_signed());
+        assert!(!u32::is_signed());
+    }
+
+    #[test]
+    fn test_bit_width() {
+        assert_eq!(i32::bit_width(), 32);
+        assert_eq!(u64::bit_width(), 64);
+    }
+
+    #[test]
+    fn test_safe_arithmetic() {
+        let a: i32 = 100;
+        let b: i32 = 50;
+
+        assert_eq!(a.checked_add_ext(b), Some(150));
+        assert_eq!(a.checked_sub_ext(b), Some(50));
+        assert_eq!(a.checked_mul_ext(b), Some(5000));
+        assert_eq!(a.checked_div_ext(b), Some(2));
+        assert_eq!(a.checked_rem_ext(b), Some(0));
+
+        // Test overflow cases
+        let max = i32::MAX;
+        assert_eq!(max.checked_add_ext(1), None);
+    }
+
+    #[test]
+    fn test_string_length_bounds() {
+        assert!(int_bits_strlen_bound(32) >= 10); // 32-bit integers need at least 10 chars
+        assert!(int_bufsize_bound::<i32>() >= 11); // i32 needs 11 chars including sign and null
+    }
+}
