@@ -17,5 +17,6 @@ pub mod progname;
 pub mod quotearg;
 pub mod safe_read;
 pub mod safe_write;
+pub mod stripslash;
 pub mod util;
 pub mod version_etc;
