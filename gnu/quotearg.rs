@@ -317,3 +317,110 @@ fn quotearg_buffer_restyled(
     }
     len
 }
+
+pub fn quotearg_buffer(
+    buffer: &mut Vec<u8>,
+    buffersize: usize,
+    arg: &str,
+    argsize: usize,
+    o: Option<&QuotingOptions>,
+) -> usize {
+    let default_opts = DEFAULT_QUOTING_OPTIONS.lock().unwrap();
+    let opts = o.unwrap_or(&default_opts);
+    quotearg_buffer_restyled(
+        buffer,
+        buffersize,
+        arg,
+        argsize,
+        opts.style,
+        opts.flags,
+        &opts.quote_these_too,
+        opts.left_quote.as_bytes(),
+        opts.right_quote.as_bytes(),
+    )
+}
+
+pub fn quotearg_alloc(arg: &str, argsize: usize, o: Option<&QuotingOptions>) -> String {
+    let default_opts = DEFAULT_QUOTING_OPTIONS.lock().unwrap();
+    let opts = o.unwrap_or(&default_opts);
+    let mut buffer = Vec::new();
+    let size = quotearg_buffer_restyled(
+        &mut buffer,
+        0,
+        arg,
+        argsize,
+        opts.style,
+        opts.flags | QuotingFlags::ELIDE_NULL_BYTES,
+        &opts.quote_these_too,
+        opts.left_quote.as_bytes(),
+        opts.right_quote.as_bytes(),
+    );
+    buffer.resize(size + 1, 0);
+    quotearg_buffer_restyled(
+        &mut buffer,
+        size + 1,
+        arg,
+        argsize,
+        opts.style,
+        opts.flags | QuotingFlags::ELIDE_NULL_BYTES,
+        &opts.quote_these_too,
+        opts.left_quote.as_bytes(),
+        opts.right_quote.as_bytes(),
+    );
+    String::from_utf8_lossy(&buffer[..size]).into_owned()
+}
+
+struct SlotVec {
+    slots: Vec<(usize, Vec<u8>)>,
+}
+
+lazy_static::lazy_static! {
+    static ref SLOTVEC: Mutex<SlotVec> = Mutex::new(SlotVec {
+        slots: vec![(256, vec![0; 256])],
+    });
+}
+
+pub fn quotearg_free() {
+    let mut sv = SLOTVEC.lock().unwrap();
+    sv.slots.truncate(1);
+    sv.slots[0] = (256, vec![0; 256]);
+}
+
+pub fn quotearg_n_options(n: i32, arg: &str, argsize: usize, options: &QuotingOptions) -> String {
+    if n < 0 {
+        panic!("Slot number must be nonnegative");
+    }
+    let n = n as usize;
+    let mut sv = SLOTVEC.lock().unwrap();
+    while sv.slots.len() <= n {
+        sv.slots.push((0, Vec::new()));
+    }
+    let (size, val) = &mut sv.slots[n];
+    let qsize = quotearg_buffer_restyled(
+        val,
+        *size,
+        arg,
+        argsize,
+        options.style,
+        options.flags | QuotingFlags::ELIDE_NULL_BYTES,
+        &options.quote_these_too,
+        options.left_quote.as_bytes(),
+        options.right_quote.as_bytes(),
+    );
+    if *size <= qsize {
+        *size = qsize + 1;
+        *val = vec![0; *size];
+        quotearg_buffer_restyled(
+            val,
+            *size,
+            arg,
+            argsize,
+            options.style,
+            options.flags | QuotingFlags::ELIDE_NULL_BYTES,
+            &options.quote_these_too,
+            options.left_quote.as_bytes(),
+            options.right_quote.as_bytes(),
+        );
+    }
+    String::from_utf8_lossy(&val[..qsize]).into_owned()
+}
