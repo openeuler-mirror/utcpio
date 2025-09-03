@@ -424,3 +424,56 @@ pub fn quotearg_n_options(n: i32, arg: &str, argsize: usize, options: &QuotingOp
     }
     String::from_utf8_lossy(&val[..qsize]).into_owned()
 }
+
+pub fn quotearg_n(n: i32, arg: &str) -> String {
+    quotearg_n_options(n, arg, usize::MAX, &DEFAULT_QUOTING_OPTIONS.lock().unwrap())
+}
+
+pub fn quotearg(arg: &str) -> String {
+    quotearg_n(0, arg)
+}
+
+pub fn quotearg_n_style(n: i32, s: QuotingStyle, arg: &str) -> String {
+    let o = quoting_options_from_style(s);
+    quotearg_n_options(n, arg, usize::MAX, &o)
+}
+
+pub fn quotearg_style(s: QuotingStyle, arg: &str) -> String {
+    quotearg_n_style(0, s, arg)
+}
+
+pub fn quotearg_char(arg: &str, ch: u8) -> String {
+    let mut options = DEFAULT_QUOTING_OPTIONS.lock().unwrap().clone();
+    set_char_quoting(Some(&mut options), ch, 1);
+    quotearg_n_options(0, arg, usize::MAX, &options)
+}
+
+pub fn quotearg_colon(arg: &str) -> String {
+    quotearg_char(arg, b':')
+}
+
+pub fn quotearg_n_custom(n: i32, left_quote: &str, right_quote: &str, arg: &str) -> String {
+    let mut o = DEFAULT_QUOTING_OPTIONS.lock().unwrap().clone();
+    set_custom_quoting(Some(&mut o), left_quote, right_quote);
+    quotearg_n_options(n, arg, usize::MAX, &o)
+}
+
+pub fn quotearg_custom(left_quote: &str, right_quote: &str, arg: &str) -> String {
+    quotearg_n_custom(0, left_quote, right_quote, arg)
+}
+
+pub fn quote_n(n: i32, arg: &str) -> String {
+    let o = DEFAULT_QUOTING_OPTIONS.lock().unwrap().clone();
+    quotearg_alloc(arg, n as usize, Some(&o))
+}
+
+pub fn quote(arg: &str) -> String {
+    quote_n(0, arg)
+}
+
+// fn test() {
+//     let arg = "Hello\nWorld";
+//     println!("{}", quotearg_style(QuotingStyle::C, arg)); // "Hello\nWorld"
+//     println!("{}", quotearg_style(QuotingStyle::ShellAlways, arg)); // 'Hello World'
+//     println!("{}", quotearg_custom("<<", ">>", arg)); // <<Hello World>>
+// }
