@@ -22,3 +22,4 @@ pub mod umaxtostr;
 pub mod util;
 pub mod version_etc;
 pub mod xalloc_die;
+pub mod xmalloc;
