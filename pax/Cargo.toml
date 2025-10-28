@@ -10,3 +10,8 @@ path = "lib.rs"
 crate-type = ["rlib"]  # 声明为静态库
 
 [dependencies]
+gnu = { path = "../gnu" }
+lazy_static = "1.5.0"
+nix = { version = "0.29", features = ["user"] }
+libc = "0.2.170"
+users = "0.11.0"
