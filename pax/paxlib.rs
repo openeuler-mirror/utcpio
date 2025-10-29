@@ -95,4 +95,3 @@ pub fn USAGE_ERROR(errno: i32, args: std::fmt::Arguments) {
     error(0, errno, args);
     usage(PAXEXIT_FAILURE);
 }
-
