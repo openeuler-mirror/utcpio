@@ -13,3 +13,4 @@ pub mod paxexit;
 pub mod paxexit_status;
 pub mod paxlib;
 pub mod paxnames;
+pub mod paxerror;
