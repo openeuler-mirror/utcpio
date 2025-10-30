@@ -9,8 +9,10 @@ pub fn gnu_function() {
 }
 
 pub mod fatal;
+pub mod paxerror;
 pub mod paxexit;
 pub mod paxexit_status;
 pub mod paxlib;
 pub mod paxnames;
-pub mod paxerror;
+pub mod rmt;
+pub mod rtapelib;
