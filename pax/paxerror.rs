@@ -99,3 +99,130 @@ pub fn chown_uid_error_details(name: &str, uid: u32, gid: u32) {
         ),
     );
 }
+
+pub fn close_error(name: &str) {
+    call_arg_error("close", name);
+}
+
+pub fn close_warn(name: &str) {
+    call_arg_warn("close", name);
+}
+
+pub fn exec_fatal(name: &str) {
+    call_arg_fatal("exec", name);
+}
+
+pub fn link_error(target: &str, source: &str) {
+    let e = errno();
+    ERROR(
+        e,
+        format_args!(
+            "{}: Cannot create link to {}",
+            quotearg_colon(source),
+            quote_n(1, target)
+        ),
+    );
+}
+
+pub fn mkdir_error(name: &str) {
+    call_arg_error("mkdir", name);
+}
+
+pub fn mkfifo_error(name: &str) {
+    call_arg_error("mkfifo", name);
+}
+
+pub fn mknod_error(name: &str) {
+    call_arg_error("mknod", name);
+}
+
+pub fn open_error(name: &str) {
+    call_arg_error("open", name);
+}
+
+pub fn open_fatal(name: &str) {
+    call_arg_fatal("open", name);
+}
+
+pub fn open_warn(name: &str) {
+    call_arg_warn("open", name);
+}
+
+pub fn read_error(name: &str) {
+    call_arg_error("read", name);
+}
+
+pub fn read_error_details(name: &str, offset: i64, size: usize) {
+    let e = errno();
+
+    ERROR(
+        e,
+        format_args!(
+            "{}: Read error at byte {}, while reading {} bytes",
+            quotearg_colon(name),
+            offset,
+            size
+        ),
+    );
+}
+pub fn read_warn_details(name: &str, offset: i64, size: usize) {
+    let e = errno();
+    WARN(
+        e,
+        format_args!(
+            "{}: Warning: Read error at byte {}, while reading {} byte",
+            quotearg_colon(name),
+            offset,
+            size
+        ),
+    );
+}
+
+pub fn read_fatal(name: &str) {
+    call_arg_fatal("read", name);
+}
+
+pub fn read_fatal_details(name: &str, offset: i64, size: usize) {
+    let e = errno();
+    FATAL_ERROR(
+        e,
+        format_args!(
+            "{}: Read error at byte {}, while reading {} byte",
+            quotearg_colon(name),
+            offset,
+            size
+        ),
+    );
+}
+
+pub fn readlink_error(name: &str) {
+    call_arg_error("readlink", name);
+}
+
+pub fn readlink_warn(name: &str) {
+    call_arg_warn("readlink", name);
+}
+
+pub fn rmdir_error(name: &str) {
+    call_arg_error("rmdir", name);
+}
+
+pub fn savedir_error(name: &str) {
+    call_arg_error("savedir", name);
+}
+
+pub fn savedir_warn(name: &str) {
+    call_arg_warn("savedir", name);
+}
+
+pub fn seek_error(name: &str) {
+    call_arg_error("seek", name);
+}
+
+pub fn seek_error_details(name: &str, offset: i64) {
+    let e = errno();
+    ERROR(
+        e,
+        format_args!("{}: Cannot seek to {}", quotearg_colon(name), offset),
+    );
+}
