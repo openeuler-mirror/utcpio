@@ -8,12 +8,12 @@
 
 use std::ffi::CString;
 use std::fs::{File, OpenOptions};
-use std::io::{self};
+use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::os::fd::{AsRawFd, FromRawFd};
 use std::os::unix::fs::OpenOptionsExt;
 use std::sync::atomic::Ordering;
 
-use libc::{access, stat};
+use libc::{access, creat, dup, fcntl, fstat, isatty, lstat, mode_t, stat};
 
 use crate::paxlib::*;
 use crate::rtapelib::*;
@@ -21,7 +21,7 @@ use gnu::error::set_errno;
 use gnu::util::validate_and_sanitize_path;
 
 const REM_BIAS: i32 = 1 << 30;
-//  const O_CREAT: i32 = 0o1000;
+const O_CREAT: i32 = 0o1000;
 const EOPNOTSUPP: i32 = 95;
 
 pub fn remdev(dev_name: &str) -> bool {
@@ -121,5 +121,164 @@ pub fn rmtstat(dev_name: &str, buffer: &mut libc::stat) -> i32 {
                 -1
             }
         }
+    }
+}
+
+pub fn rmtcreat(dev_name: &str, mode: u32, command: &str) -> i32 {
+    if remdev(dev_name) {
+        rmt_open__(dev_name, O_CREAT | libc::O_WRONLY, REM_BIAS, Some(command))
+    } else {
+        // 验证和清理路径
+        match validate_and_sanitize_path(dev_name) {
+            Ok(safe_path) => match CString::new(safe_path.to_string_lossy().as_ref()) {
+                Ok(c_dev_name) => unsafe { creat(c_dev_name.as_ptr(), mode as mode_t) },
+                Err(_) => {
+                    set_errno(libc::EINVAL);
+                    -1
+                }
+            },
+            Err(_) => {
+                set_errno(libc::EINVAL);
+                -1
+            }
+        }
+    }
+}
+
+pub fn rmtlstat(dev_name: &str, buffer: &mut libc::stat) -> i32 {
+    if remdev(dev_name) {
+        let _ = io::Error::from_raw_os_error(EOPNOTSUPP);
+        -1
+    } else {
+        // 验证和清理路径
+        match validate_and_sanitize_path(dev_name) {
+            Ok(safe_path) => match CString::new(safe_path.to_string_lossy().as_ref()) {
+                Ok(c_dev_name) => unsafe { lstat(c_dev_name.as_ptr(), buffer) },
+                Err(_) => {
+                    set_errno(libc::EINVAL);
+                    -1
+                }
+            },
+            Err(_) => {
+                set_errno(libc::EINVAL);
+                -1
+            }
+        }
+    }
+}
+
+pub fn rmtread(file: &File, buffer: &mut [u8], length: usize) -> usize {
+    let fd: i32 = file.as_raw_fd();
+    if isrmt(file) {
+        rmt_read__((fd - REM_BIAS) as usize, buffer, length)
+    } else {
+        match fd {
+            0 => {
+                //   test_read();
+                let mut stdin = io::stdin();
+                match stdin.read(&mut buffer[..length]) {
+                    Ok(read_bytes) => read_bytes,
+
+                    Err(e) => {
+                        eprintln!("Error reading from stdin: {:?}", e);
+                        0 // 或者返回适当的错误处理
+                    }
+                }
+            }
+            1 => {
+                0 // 或者返回适当的错误处理
+            }
+            _ => 0,
+        }
+    }
+}
+
+pub fn rmtwrite(file: &mut File, buffer: &[u8], length: usize) -> usize {
+    if isrmt(file) {
+        let fd: i32 = file.as_raw_fd();
+        rmt_write__((fd - REM_BIAS) as usize, buffer, length)
+    } else {
+        file.write(buffer).unwrap_or(0)
+    }
+}
+
+pub fn rmtlseek(file: &mut File, offset: i64, whence: i32) -> i64 {
+    let pos = match whence {
+        libc::SEEK_SET => SeekFrom::Start(offset as u64),
+        libc::SEEK_CUR => SeekFrom::Current(offset),
+        libc::SEEK_END => SeekFrom::End(offset),
+        _ => return -1,
+    };
+    let fd: i32 = file.as_raw_fd();
+    if isrmt(file) {
+        rmt_lseek__((fd - REM_BIAS) as usize, offset, pos) // Corrected SeekFrom usage
+    } else {
+        match file.seek(pos) {
+            Ok(offset) => match offset.try_into() {
+                Ok(offset_i64) => offset_i64,
+                Err(_) => -1,
+            },
+            Err(_) => -1,
+        }
+    }
+}
+
+pub fn rmtclose(file: &File) -> i32 {
+    let fd: i32 = file.as_raw_fd();
+
+    if isrmt(file) {
+        rmt_close__((fd - REM_BIAS) as usize)
+    } else {
+        let _file = unsafe { File::from_raw_fd(fd) };
+        0
+    }
+}
+
+pub fn rmtioctl(file: &File, request: u64, argument: &mut [u8]) -> i32 {
+    let fd: i32 = file.as_raw_fd();
+
+    if isrmt(file) {
+        rmt_ioctl__((fd - REM_BIAS) as usize, request, argument)
+    } else {
+        unsafe { libc::ioctl(fd, request, argument as *mut _) }
+    }
+}
+
+pub fn rmtdup(file: &File) -> i32 {
+    if isrmt(file) {
+        let _ = io::Error::from_raw_os_error(EOPNOTSUPP);
+        -1
+    } else {
+        let fd: i32 = file.as_raw_fd();
+        unsafe { dup(fd) }
+    }
+}
+
+pub fn rmtfstat(file: &File, buffer: &mut libc::stat) -> i32 {
+    if isrmt(file) {
+        let _ = io::Error::from_raw_os_error(EOPNOTSUPP);
+        -1
+    } else {
+        let fd: i32 = file.as_raw_fd();
+        unsafe { fstat(fd, buffer) }
+    }
+}
+
+pub fn rmtfcntl(file: &File, command: i32, argument: i32) -> i32 {
+    if isrmt(file) {
+        let _ = io::Error::from_raw_os_error(EOPNOTSUPP);
+        -1
+    } else {
+        let fd: i32 = file.as_raw_fd();
+        unsafe { fcntl(fd, command, argument) }
+    }
+}
+
+pub fn rmtisatty(file: &File) -> i32 {
+    if isrmt(file) {
+        0
+    } else {
+        let fd: i32 = file.as_raw_fd();
+        unsafe { isatty(fd) }
     }
 }
