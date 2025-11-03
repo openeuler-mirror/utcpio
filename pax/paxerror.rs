@@ -6,6 +6,7 @@
 
 use crate::paxlib::*;
 use gnu::error::*;
+use libc::{gid_t, mode_t, uid_t};
 
 fn quotearg_colon(input: &str) -> String {
     input.replace(":", "\\:") // 替换冒号为转义后的形式
@@ -225,4 +226,109 @@ pub fn seek_error_details(name: &str, offset: i64) {
         e,
         format_args!("{}: Cannot seek to {}", quotearg_colon(name), offset),
     );
+}
+
+pub fn seek_warn(name: &str) {
+    call_arg_warn("seek", name);
+}
+
+pub fn seek_warn_details(name: &str, offset: i64) {
+    let e = errno();
+    WARN(
+        e,
+        format_args!(
+            "{}: Warning: Cannot seek to {}",
+            quotearg_colon(name),
+            offset
+        ),
+    );
+}
+
+pub fn symlink_error(contents: &str, name: &str) {
+    let e = errno();
+    ERROR(
+        e,
+        format_args!(
+            "{}: Cannot create symlink to {}",
+            quotearg_colon(name),
+            quote_n(1, contents)
+        ),
+    );
+}
+
+pub fn chmod_error_details(name: &str, mode: mode_t) {
+    let e = errno();
+
+    ERROR(
+        e,
+        format_args!(
+            "{}: Cannot change mode to {}",
+            quotearg_colon(name),
+            pax_decode_mode(mode)
+        ),
+    );
+}
+
+pub fn chown_error_details(name: &str, uid: uid_t, gid: gid_t) {
+    let e = errno();
+    ERROR(
+        e,
+        format_args!(
+            "{}: Cannot change ownership to uid {}, gid {}",
+            quotearg_colon(name),
+            uid,
+            gid
+        ),
+    );
+}
+
+pub fn stat_fatal(name: &str) {
+    call_arg_fatal("stat", name);
+}
+
+pub fn stat_error(name: &str) {
+    call_arg_error("stat", name);
+}
+
+pub fn stat_warn(name: &str) {
+    call_arg_warn("stat", name);
+}
+
+pub fn truncate_error(name: &str) {
+    call_arg_error("truncate", name);
+}
+
+pub fn truncate_warn(name: &str) {
+    call_arg_warn("truncate", name);
+}
+
+pub fn unlink_error(name: &str) {
+    call_arg_error("unlink", name);
+}
+
+pub fn utime_error(name: &str) {
+    call_arg_error("utime", name);
+}
+
+pub fn waitpid_error(name: &str) {
+    call_arg_error("waitpid", name);
+}
+
+pub fn write_error(name: &str) {
+    call_arg_error("write", name);
+}
+
+pub fn write_error_details(name: &str, status: usize, size: usize) {
+    if status == 0 {
+        write_error(name);
+    } else {
+        ERROR(
+            0,
+            format_args!("{}: Wrote only {} of {} byte", name, status, size),
+        );
+    }
+}
+
+pub fn chdir_fatal(name: &str) {
+    call_arg_fatal("chdir", name);
 }
