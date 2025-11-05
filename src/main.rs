@@ -5,7 +5,10 @@
  */
 
 mod userspec;
+mod idcache;
+mod initramfs;
 use userspec::*;
+use initramfs::*;
 fn main() {
     println!("Hello, world!");
 }
