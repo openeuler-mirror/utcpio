@@ -1,5 +1,5 @@
 [workspace]
-members = ["gnu", "pax", ] 
+members = ["gnu", "pax", "rmt"] 
 resolver = "2"
 
 [package]
@@ -8,8 +8,20 @@ version = "0.1.0"
 authors = ["zhanghaidong  <zhanghaidong@uniontech.com>"]
 description = "A simple cpio implementation"
 edition = "2021"
-license = "GPL-2.0-or-later"
+license = "GPL-3.0-or-later"
+build = "build.rs"  # 指定构建脚本
+
+[dependencies]
+libc = "0.2"
+nix = "0.29"
+gnu = { path = "./gnu" }
+pax = { path = "./pax" }
+clap = { version = "4.5", features = ["derive"] }
+lazy_static = "1.5.0"
+users = "0.11.0"
+chrono = "0.4.40"
 
 [[bin]]
 name = "utcpio"
 path = "src/main.rs"
+

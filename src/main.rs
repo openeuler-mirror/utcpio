@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
+mod userspec;
+use userspec::*;
 fn main() {
     println!("Hello, world!");
 }
