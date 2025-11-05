@@ -2,5 +2,22 @@
 name = "rmt"
 version = "0.1.0"
 edition = "2021"
+license = "GPL-3.0-or-later"
 
 [dependencies]
+gnu = { path = "../gnu" }
+nix = { version = "0.29", features = ["fs","ioctl"] }
+lazy_static = "1.4"
+clap = { version = "4.5.32", features = ["derive"] }
+
+
+[[bin]]
+name = "rmt"
+path = "rmt.rs"
+
+[features]
+mtio = []
+
+[package.metadata]
+PACKAGE_NAME = "rmt"
+VERSION = "1.0"
