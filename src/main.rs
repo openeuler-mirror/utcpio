@@ -4,11 +4,13 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-mod userspec;
+mod global;
 mod idcache;
 mod initramfs;
-use userspec::*;
+mod userspec;
+use global::*;
 use initramfs::*;
+use userspec::*;
 fn main() {
     println!("Hello, world!");
 }
