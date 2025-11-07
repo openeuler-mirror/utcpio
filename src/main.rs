@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
+mod externs;
 mod filemode;
 mod filetype;
 mod global;
