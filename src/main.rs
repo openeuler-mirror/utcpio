@@ -13,6 +13,7 @@ mod global;
 mod idcache;
 mod initramfs;
 mod userspec;
+mod appargs;
 
 use global::*;
 use initramfs::*;
