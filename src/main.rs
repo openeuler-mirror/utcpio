@@ -14,6 +14,8 @@ mod idcache;
 mod initramfs;
 mod userspec;
 mod appargs;
+mod util;
+mod copyin;
 
 use global::*;
 use initramfs::*;
