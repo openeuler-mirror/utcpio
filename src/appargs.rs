@@ -206,9 +206,197 @@ pub fn set_num_patterns(value: i32) {
         // 处理 APPARGS 未初始化的情况
     }
 }
+pub fn set_directory_name(value: Option<String>) {
+    APPARGS.get().unwrap().lock().unwrap().directory_name = value;
+}
+pub fn get_directory_name() -> Option<String> {
+    APPARGS
+        .get()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .directory_name
+        .clone()
+}
 
-pub fn get_sparse_flag() -> bool {
-    APPARGS.get().unwrap().lock().unwrap().sparse_flag
+pub fn get_crc() -> usize {
+    APPARGS.get().unwrap().lock().unwrap().crc
+}
+pub fn set_crc(value: usize) {
+    APPARGS.get().unwrap().lock().unwrap().crc = value;
+}
+pub fn get_crc_i_flag() -> bool {
+    APPARGS.get().unwrap().lock().unwrap().crc_i_flag
+}
+pub fn set_crc_i_flag(value: bool) {
+    APPARGS.get().unwrap().lock().unwrap().crc_i_flag = value;
+}
+
+pub fn get_name_end() -> i8 {
+    APPARGS.get().unwrap().lock().unwrap().name_end
+}
+
+pub fn set_name_end(value: i8) {
+    APPARGS.get().unwrap().lock().unwrap().name_end = value;
+}
+
+pub fn get_reset_time_flag() -> bool {
+    APPARGS.get().unwrap().lock().unwrap().reset_time_flag
+}
+
+pub fn set_reset_time_flag(value: bool) {
+    APPARGS.get().unwrap().lock().unwrap().reset_time_flag = value;
+}
+
+pub fn get_append_flag() -> bool {
+    APPARGS.get().unwrap().lock().unwrap().append_flag
+}
+
+pub fn set_append_flag(value: bool) {
+    APPARGS.get().unwrap().lock().unwrap().append_flag = value;
+}
+
+pub fn get_swap_bytes_flag() -> bool {
+    APPARGS.get().unwrap().lock().unwrap().swap_bytes_flag
+}
+
+pub fn set_swap_bytes_flag(value: bool) {
+    APPARGS.get().unwrap().lock().unwrap().swap_bytes_flag = value;
+}
+
+pub fn get_swap_halfwords_flag() -> bool {
+    APPARGS.get().unwrap().lock().unwrap().swap_halfwords_flag
+}
+
+pub fn set_swap_halfwords_flag(value: bool) {
+    APPARGS.get().unwrap().lock().unwrap().swap_halfwords_flag = value;
+}
+
+pub fn get_io_block_size() -> i32 {
+    APPARGS.get().unwrap().lock().unwrap().io_block_size
+}
+
+pub fn set_io_block_size(value: i32) {
+    APPARGS.get().unwrap().lock().unwrap().io_block_size = value;
+}
+
+pub fn get_archive_format() -> ArchiveFormat {
+    APPARGS.get().unwrap().lock().unwrap().archive_format
+}
+
+pub fn set_archive_format(value: ArchiveFormat) {
+    APPARGS.get().unwrap().lock().unwrap().archive_format = value;
+}
+
+pub fn get_create_dir_flag() -> bool {
+    APPARGS.get().unwrap().lock().unwrap().create_dir_flag
+}
+
+pub fn set_create_dir_flag(value: bool) {
+    APPARGS.get().unwrap().lock().unwrap().create_dir_flag = value;
+}
+
+pub fn get_change_directory_option() -> Option<String> {
+    APPARGS
+        .get()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .change_directory_option
+        .clone()
+}
+
+pub fn set_change_directory_option(value: Option<String>) {
+    APPARGS
+        .get()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .change_directory_option = value;
+}
+
+pub fn get_metadata_type() -> MetadataTypes {
+    APPARGS.get().unwrap().lock().unwrap().metadata_type
+}
+
+pub fn set_metadata_type(value: MetadataTypes) {
+    APPARGS.get().unwrap().lock().unwrap().metadata_type = value;
+}
+
+pub fn get_pattern_file_name() -> Option<String> {
+    APPARGS
+        .get()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .pattern_file_name
+        .clone()
+}
+
+pub fn set_pattern_file_name(value: Option<String>) {
+    APPARGS.get().unwrap().lock().unwrap().pattern_file_name = value;
+}
+
+pub fn get_archive_name() -> Option<String> {
+    APPARGS.get().unwrap().lock().unwrap().archive_name.clone()
+}
+
+pub fn set_archive_name(value: Option<String>) {
+    APPARGS.get().unwrap().lock().unwrap().archive_name = value;
+}
+
+pub fn get_copy_matching_files() -> bool {
+    APPARGS.get().unwrap().lock().unwrap().copy_matching_files
+}
+
+pub fn set_copy_matching_files(value: bool) {
+    APPARGS.get().unwrap().lock().unwrap().copy_matching_files = value;
+}
+
+pub fn get_copy_function() -> Option<CopyFunctionFn> {
+    APPARGS.get().unwrap().lock().unwrap().copy_function
+}
+
+pub fn set_copy_function(value: CopyFunctionFn) {
+    APPARGS.get().unwrap().lock().unwrap().copy_function = Some(value);
+}
+
+pub fn get_input_archive_name() -> Option<String> {
+    APPARGS
+        .get()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .input_archive_name
+        .clone()
+}
+
+pub fn set_input_archive_name(value: Option<String>) {
+    APPARGS.get().unwrap().lock().unwrap().input_archive_name = value;
+}
+
+pub fn get_link_flag() -> bool {
+    APPARGS.get().unwrap().lock().unwrap().link_flag
+}
+
+pub fn set_link_flag(value: bool) {
+    APPARGS.get().unwrap().lock().unwrap().link_flag = value;
+}
+
+// pub fn get_xstat() -> Xstat {
+//      APPARGS.get().unwrap().lock().unwrap().xstat.unwrap()
+// }
+
+// pub fn set_xstat(value: Xstat) {
+//     APPARGS.get().unwrap().lock().unwrap().xstat.unwrap() = value;
+// }
+
+pub fn get_retain_time_flag() -> bool {
+    APPARGS.get().unwrap().lock().unwrap().retain_time_flag
+}
+
+pub fn set_retain_time_flag(value: bool) {
+    APPARGS.get().unwrap().lock().unwrap().retain_time_flag = value;
 }
 
 pub fn get_new_media_message() -> Option<String> {
@@ -221,6 +409,10 @@ pub fn get_new_media_message() -> Option<String> {
         .clone()
 }
 
+pub fn set_args_new_media_message(value: Option<String>) {
+    APPARGS.get().unwrap().lock().unwrap().new_media_message = value;
+}
+
 pub fn get_args_new_media_message_with_number() -> Option<String> {
     APPARGS
         .get()
@@ -229,6 +421,15 @@ pub fn get_args_new_media_message_with_number() -> Option<String> {
         .unwrap()
         .new_media_message_with_number
         .clone()
+}
+
+pub fn set_new_media_message_with_number(value: Option<String>) {
+    APPARGS
+        .get()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .new_media_message_with_number = value;
 }
 
 pub fn get_new_media_message_after_number() -> Option<String> {
@@ -241,9 +442,58 @@ pub fn get_new_media_message_after_number() -> Option<String> {
         .clone()
 }
 
+pub fn set_new_media_message_after_number(value: Option<String>) {
+    APPARGS
+        .get()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .new_media_message_after_number = value;
+}
 
-pub fn get_archive_name() -> Option<String> {
-    APPARGS.get().unwrap().lock().unwrap().archive_name.clone()
+pub fn get_set_owner_flag() -> bool {
+    APPARGS.get().unwrap().lock().unwrap().set_owner_flag
+}
+
+pub fn set_set_owner_flag(value: bool) {
+    APPARGS.get().unwrap().lock().unwrap().set_owner_flag = value;
+}
+
+pub fn get_set_group_flag() -> bool {
+    APPARGS.get().unwrap().lock().unwrap().set_group_flag
+}
+
+pub fn set_set_group_flag(value: bool) {
+    APPARGS.get().unwrap().lock().unwrap().set_group_flag = value;
+}
+
+pub fn get_set_owner() -> u32 {
+    APPARGS.get().unwrap().lock().unwrap().set_owner
+}
+
+pub fn set_set_owner(value: u32) {
+    APPARGS.get().unwrap().lock().unwrap().set_owner = value;
+}
+
+pub fn get_set_group() -> u32 {
+    APPARGS.get().unwrap().lock().unwrap().set_group
+}
+
+pub fn set_set_group(value: u32) {
+    APPARGS.get().unwrap().lock().unwrap().set_group = value;
+}
+
+pub fn get_output_archive_name() -> Option<String> {
+    APPARGS
+        .get()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .output_archive_name
+        .clone()
+}
+pub fn get_sparse_flag() -> bool {
+    APPARGS.get().unwrap().lock().unwrap().sparse_flag
 }
 
 pub fn get_rsh_command_option() -> Option<String> {
@@ -257,6 +507,4 @@ pub fn get_rsh_command_option() -> Option<String> {
 }
 
 
-pub fn get_append_flag() -> bool {
-    APPARGS.get().unwrap().lock().unwrap().append_flag
-}
+
