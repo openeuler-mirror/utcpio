@@ -206,3 +206,57 @@ pub fn set_num_patterns(value: i32) {
         // 处理 APPARGS 未初始化的情况
     }
 }
+
+pub fn get_sparse_flag() -> bool {
+    APPARGS.get().unwrap().lock().unwrap().sparse_flag
+}
+
+pub fn get_new_media_message() -> Option<String> {
+    APPARGS
+        .get()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .new_media_message
+        .clone()
+}
+
+pub fn get_args_new_media_message_with_number() -> Option<String> {
+    APPARGS
+        .get()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .new_media_message_with_number
+        .clone()
+}
+
+pub fn get_new_media_message_after_number() -> Option<String> {
+    APPARGS
+        .get()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .new_media_message_after_number
+        .clone()
+}
+
+
+pub fn get_archive_name() -> Option<String> {
+    APPARGS.get().unwrap().lock().unwrap().archive_name.clone()
+}
+
+pub fn get_rsh_command_option() -> Option<String> {
+    APPARGS
+        .get()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .rsh_command_option
+        .clone()
+}
+
+
+pub fn get_append_flag() -> bool {
+    APPARGS.get().unwrap().lock().unwrap().append_flag
+}
