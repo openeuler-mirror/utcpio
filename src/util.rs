@@ -241,6 +241,252 @@ fn swahw_array(ptr: &mut [u8], count: usize) {
         }
     }
 }
+
+
+fn tape_fill_input_buffer(input_tape: &mut MutexGuard<TapeInput>, in_des: &File, num_bytes: i32) {
+    input_tape.in_buff = 0;
+    let num_bytes = num_bytes.min(get_io_block_size());
+
+    let mut input_size = rmtread(in_des, &mut input_tape.input_buffer, num_bytes as usize);
+
+    if input_size == 0 && input_tape.input_is_special {
+        get_next_reel(in_des);
+        input_size = rmtread(in_des, &mut input_tape.input_buffer, num_bytes as usize);
+    }
+    if input_size == SAFE_READ_ERROR {
+        error(PAXEXIT_FAILURE, 0, format_args!("rmtread error"));
+    }
+
+    if (input_size) == 0 {
+        error(PAXEXIT_FAILURE, 0, format_args!("rmtread error"));
+    }
+
+    input_tape.input_size = input_size;
+    input_tape.input_bytes += input_size;
+}
+
+fn disk_fill_input_buffer(
+    input_tape: &mut MutexGuard<TapeInput>,
+    in_des: &mut File,
+    num_bytes: usize,
+) -> i32 {
+    input_tape.in_buff = 0; // 重置索引
+
+    let num_bytes = if num_bytes < get_io_block_size() as usize {
+        num_bytes
+    } else {
+        get_io_block_size() as usize
+    };
+    let buffer_slice = &mut input_tape.input_buffer[0..num_bytes];
+
+    match in_des.read(buffer_slice) {
+        Ok(n) => {
+            if n == 0 {
+                input_tape.input_size = 0;
+                1
+            } else {
+                input_tape.input_size = n;
+                input_tape.input_bytes += input_tape.input_size;
+                0
+            }
+        }
+        Err(_e) => {
+            input_tape.input_size = 0;
+            -1
+        }
+    }
+}
+
+pub fn tape_buffered_write(
+    output_tape: &mut MutexGuard<TapeOutput>,
+    in_buf: &mut [u8],
+    out_file: &mut File,
+    num_bytes: usize,
+) {
+    // 如果不需要写入任何字节，直接返回
+    if num_bytes == 0 {
+        return;
+    }
+
+    let mut bytes_left = num_bytes;
+    let mut in_buf_offset = 0;
+    // let mut space_left = 0;
+
+    while bytes_left > 0 {
+        let mut space_left = get_io_block_size() as usize - output_tape.output_size;
+
+        if space_left == 0 {
+            tape_empty_output_buffer(output_tape, out_file);
+        } else {
+            if bytes_left < space_left {
+                space_left = bytes_left;
+            }
+
+            let in_start = in_buf_offset; // in_buf.len() - bytes_left ;
+            let in_end = in_start + space_left;
+
+            let out_start = output_tape.out_buff;
+            let out_end = out_start + space_left;
+
+            output_tape.output_buffer[out_start..out_end]
+                .copy_from_slice(&in_buf[in_start..in_end]);
+            // output_tape.output_buffer.splice(out_start..out_end, in_buf[in_start..in_end].iter().cloned());
+
+            output_tape.out_buff += space_left;
+            output_tape.output_size += space_left;
+            bytes_left -= space_left;
+            in_buf_offset += space_left;
+        }
+    }
+}
+
+pub fn tape_buffered_peek(
+    input_tape: &mut MutexGuard<TapeInput>,
+    peek_buf: &mut [u8],
+    in_des: &File,
+    num_bytes: i32,
+) -> i32 {
+    let mut tmp_input_size: isize;
+
+    let mut append_buf: usize;
+
+    //let input_size = input_tape.input_size;
+
+    while input_tape.input_size < num_bytes as usize {
+        append_buf = input_tape.in_buff + input_tape.input_size;
+        if append_buf >= input_tape.input_buffer_size {
+            let half = input_tape.input_buffer_size / 2;
+            input_tape.input_buffer.copy_within(half.., 0);
+            input_tape.in_buff -= half;
+            append_buf -= half;
+        }
+
+        tmp_input_size = rmtread(
+            in_des,
+            &mut input_tape.input_buffer[append_buf..],
+            get_io_block_size() as usize,
+        ) as isize;
+
+        if tmp_input_size == 0 {
+            if input_tape.input_is_special {
+                get_next_reel(in_des);
+                let block_size = match get_io_block_size().try_into() {
+                    Ok(size) => size,
+                    Err(_) => {
+                        error(PAXEXIT_FAILURE, 0, format_args!("Invalid block size"));
+                        return -1;
+                    }
+                };
+                tmp_input_size = match rmtread(
+                    in_des,
+                    &mut input_tape.input_buffer[append_buf..],
+                    block_size,
+                ).try_into() {
+                    Ok(size) => size,
+                    Err(_) => {
+                        error(PAXEXIT_FAILURE, 0, format_args!("Read size conversion error"));
+                        return -1;
+                    }
+                }
+            } else {
+                break;
+            }
+        }
+
+        if tmp_input_size < 0 {
+            error(PAXEXIT_FAILURE, 0, format_args!("read error"));
+            return -1;
+        }
+
+        input_tape.input_bytes += tmp_input_size as usize;
+        input_tape.input_size += tmp_input_size as usize;
+    }
+
+    let got_bytes: usize = if num_bytes as usize <= input_tape.input_size {
+        num_bytes as usize
+    } else {
+        input_tape.input_size
+    };
+
+    peek_buf[..got_bytes].copy_from_slice(
+        &input_tape.input_buffer[input_tape.in_buff..input_tape.in_buff + got_bytes],
+    );
+
+    got_bytes as i32
+}
+
+pub fn tape_toss_input(input_tape: &mut MutexGuard<TapeInput>, in_des: &mut File, num_bytes: i32) {
+    let mut bytes_left = num_bytes;
+
+    while bytes_left > 0 {
+        if input_tape.input_size == 0 {
+            tape_fill_input_buffer(input_tape, in_des, num_bytes);
+        }
+
+        let space_left = if bytes_left < input_tape.input_size as i32 {
+            bytes_left as usize
+        } else {
+            input_tape.input_size
+        };
+
+        // 如果需要计算 CRC
+        if get_only_verify_crc_flag() && get_crc_i_flag() {
+            let mut crc = get_crc();
+
+            for byte in &input_tape.input_buffer[0..space_left] {
+                crc += *byte as usize;
+            }
+            set_crc(crc);
+        }
+
+        input_tape.input_size -= space_left;
+        input_tape.in_buff += space_left;
+        bytes_left -= space_left as i32;
+    }
+}
+
+pub fn write_nuls_to_file(
+    tape_output: &mut MutexGuard<TapeOutput>,
+    num_bytes: usize,
+    out_file: &mut File,
+    writer: fn(&mut MutexGuard<TapeOutput>, &mut [u8], &mut File, usize),
+) {
+    // 如果不需要写入任何字节，直接返回
+    if num_bytes == 0 {
+        return;
+    }
+
+    let zeros_512: [u8; 512] = [0; 512];
+
+    let blocks = num_bytes / zeros_512.len();
+    let extra_bytes = num_bytes % zeros_512.len();
+
+    for _ in 0..blocks {
+        writer(
+            tape_output,
+            &mut zeros_512.to_vec(),
+            out_file,
+            zeros_512.len(),
+        );
+    }
+
+    if extra_bytes > 0 {
+        writer(tape_output, &mut zeros_512.to_vec(), out_file, extra_bytes);
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 pub fn get_next_reel(tape_des: &File) {
     let mut reel_number;
     unsafe {
