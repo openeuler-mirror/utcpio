@@ -506,5 +506,183 @@ pub fn get_rsh_command_option() -> Option<String> {
         .clone()
 }
 
+pub fn set_output_archive_name(value: Option<String>) {
+    APPARGS.get().unwrap().lock().unwrap().output_archive_name = value;
+}
 
+pub fn get_only_verify_crc_flag() -> bool {
+    APPARGS.get().unwrap().lock().unwrap().only_verify_crc_flag
+}
+
+pub fn set_only_verify_crc_flag(value: bool) {
+    APPARGS.get().unwrap().lock().unwrap().only_verify_crc_flag = value;
+}
+
+pub fn get_ignore_devno_option() -> bool {
+    APPARGS.get().unwrap().lock().unwrap().ignore_devno_option
+}
+
+pub fn set_ignore_devno_option(value: bool) {
+    APPARGS.get().unwrap().lock().unwrap().ignore_devno_option = value;
+}
+
+pub fn get_renumber_inodes_option() -> bool {
+    APPARGS
+        .get()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .renumber_inodes_option
+}
+
+pub fn set_renumber_inodes_option(value: bool) {
+    APPARGS
+        .get()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .renumber_inodes_option = value;
+}
+
+
+pub fn set_rsh_command_option(value: Option<String>) {
+    APPARGS.get().unwrap().lock().unwrap().rsh_command_option = value;
+}
+
+pub fn get_quiet_flag() -> bool {
+    APPARGS.get().unwrap().lock().unwrap().quiet_flag
+}
+
+pub fn set_quiet_flag(value: bool) {
+    APPARGS.get().unwrap().lock().unwrap().quiet_flag = value;
+}
+
+pub fn get_no_chown_flag() -> bool {
+    APPARGS.get().unwrap().lock().unwrap().no_chown_flag
+}
+
+pub fn set_no_chown_flag(value: bool) {
+    APPARGS.get().unwrap().lock().unwrap().no_chown_flag = value;
+}
+
+pub fn get_table_flag() -> bool {
+    APPARGS.get().unwrap().lock().unwrap().table_flag
+}
+
+pub fn set_table_flag(value: bool) {
+    APPARGS.get().unwrap().lock().unwrap().table_flag = value;
+}
+
+pub fn get_unconditional_flag() -> bool {
+    APPARGS.get().unwrap().lock().unwrap().unconditional_flag
+}
+
+pub fn set_unconditional_flag(value: bool) {
+    APPARGS.get().unwrap().lock().unwrap().unconditional_flag = value;
+}
+
+pub fn get_verbose_flag() -> bool {
+    APPARGS.get().unwrap().lock().unwrap().verbose_flag
+}
+
+pub fn set_verbose_flag(value: bool) {
+    APPARGS.get().unwrap().lock().unwrap().verbose_flag = value;
+}
+
+pub fn get_dot_flag() -> bool {
+    APPARGS.get().unwrap().lock().unwrap().dot_flag
+}
+
+pub fn set_dot_flag(value: bool) {
+    APPARGS.get().unwrap().lock().unwrap().dot_flag = value;
+}
+
+pub fn get_warn_option() -> i32 {
+    APPARGS.get().unwrap().lock().unwrap().warn_option
+}
+
+pub fn set_warn_option(value: i32) {
+    APPARGS.get().unwrap().lock().unwrap().warn_option = value;
+}
+
+
+
+pub fn set_sparse_flag(value: bool) {
+    APPARGS.get().unwrap().lock().unwrap().sparse_flag = value;
+}
+#[allow(dead_code)]
+pub fn get_force_local_option() -> bool {
+    APPARGS.get().unwrap().lock().unwrap().force_local_option
+}
+
+pub fn set_force_local_option(value: bool) {
+    APPARGS.get().unwrap().lock().unwrap().force_local_option = value;
+}
+
+pub fn get_to_stdout_option() -> bool {
+    APPARGS.get().unwrap().lock().unwrap().to_stdout_option
+}
+
+pub fn set_to_stdout_option(value: bool) {
+    APPARGS.get().unwrap().lock().unwrap().to_stdout_option = value;
+}
+
+// pub fn get_debug_flag() -> bool {
+//     APPARGS.get().unwrap().lock().unwrap().debug_flag
+// }
+
+// pub fn set_debug_flag(value: bool) {
+//     APPARGS.get().unwrap().lock().unwrap().debug_flag = value;
+// }
+
+pub fn get_numeric_uid() -> bool {
+    APPARGS.get().unwrap().lock().unwrap().numeric_uid
+}
+
+pub fn set_numeric_uid(value: bool) {
+    APPARGS.get().unwrap().lock().unwrap().numeric_uid = value;
+}
+
+pub fn set_no_abs_paths_flag(value: bool) {
+    APPARGS.get().unwrap().lock().unwrap().no_abs_paths_flag = value;
+}
+pub fn get_no_abs_paths_flag() -> bool {
+    APPARGS.get().unwrap().lock().unwrap().no_abs_paths_flag
+}
+
+pub fn set_ignore_dirnlink_option(value: bool) {
+    APPARGS
+        .get()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .ignore_dirnlink_option = value;
+}
+pub fn get_ignore_dirnlink_option() -> bool {
+    APPARGS
+        .get()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .ignore_dirnlink_option
+}
+
+pub fn set_rename_flag(value: bool) {
+    APPARGS.get().unwrap().lock().unwrap().rename_flag = value;
+}
+pub fn get_rename_flag() -> bool {
+    APPARGS.get().unwrap().lock().unwrap().rename_flag
+}
+pub fn set_rename_batch_file(value: Option<String>) {
+    APPARGS.get().unwrap().lock().unwrap().rename_batch_file = value;
+}
+pub fn get_rename_batch_file() -> Option<String> {
+    APPARGS
+        .get()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .rename_batch_file
+        .clone()
+}
 
