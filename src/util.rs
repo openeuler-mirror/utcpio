@@ -475,17 +475,490 @@ pub fn write_nuls_to_file(
     }
 }
 
+pub fn copy_files_tape_to_disk(
+    input_tape: &mut MutexGuard<TapeInput>,
+    output_tape: &mut MutexGuard<TapeOutput>,
+    in_des: &mut File,
+    out_file: &mut File,
+    num_bytes: i32,
+) {
+    let mut num_bytes = num_bytes as usize;
 
+    while num_bytes > 0 {
+        if input_tape.input_size == 0 {
+            tape_fill_input_buffer(input_tape, in_des, get_io_block_size());
+        }
 
+        let size = if input_tape.input_size < num_bytes {
+            input_tape.input_size
+        } else {
+            num_bytes
+        };
 
+        if get_crc_i_flag() {
+            for k in 0..size {
+                let mut crc = get_crc();
+                crc += input_tape.input_buffer[input_tape.in_buff + k] as usize;
+                set_crc(crc);
+            }
+        }
 
+        disk_buffered_write(
+            output_tape,
+            &mut input_tape.input_buffer[input_tape.in_buff..input_tape.in_buff + size].to_vec(),
+            out_file,
+            size,
+        );
+        num_bytes -= size;
+        input_tape.input_size -= size;
+        input_tape.in_buff += size;
+    }
+}
 
+pub fn disk_buffered_write(
+    output_tape: &mut MutexGuard<TapeOutput>,
+    in_buf: &mut [u8],
+    file: &mut File,
+    num_bytes: usize,
+) {
+    let mut bytes_left = num_bytes;
 
+    while bytes_left > 0 {
+        //let mut output_tape = TAPE_OUTPUT.lock().unwrap();
+        let space_left = DISK_IO_BLOCK_SIZE - output_tape.output_size;
 
+        if space_left == 0 {
+            disk_empty_output_buffer(output_tape, file, false);
+        } else {
+            let space_left = if bytes_left < space_left {
+                bytes_left
+            } else {
+                space_left
+            };
 
+            let in_start = in_buf.len() - bytes_left;
+            let in_end = in_start + space_left;
+            let out_start = output_tape.out_buff;
+            let out_end = out_start + space_left;
 
+            output_tape
+                .output_buffer
+                .splice(out_start..out_end, in_buf[in_start..in_end].iter().cloned());
 
+            output_tape.out_buff += space_left;
+            output_tape.output_size += space_left;
+            bytes_left -= space_left;
 
+            //            output_tape.print();
+        }
+    }
+}
+pub fn tape_buffered_read(
+    input_tape: &mut MutexGuard<TapeInput>,
+    in_buf: &mut [u8],
+    in_des: &File,
+    num_bytes: usize,
+) {
+    let mut bytes_left = num_bytes;
+    let mut in_buf_offset = 0;
+
+    while bytes_left > 0 && in_buf_offset < in_buf.len() {
+        if input_tape.input_size == 0 {
+            tape_fill_input_buffer(input_tape, in_des, get_io_block_size());
+        }
+
+        let space_left = if bytes_left < input_tape.input_size {
+            bytes_left
+        } else {
+            input_tape.input_size
+        };
+
+        // Ensure we don't exceed the target buffer size
+        let available_space = in_buf.len() - in_buf_offset;
+        let actual_space = if space_left < available_space {
+            space_left
+        } else {
+            available_space
+        };
+
+        if actual_space == 0 {
+            break; // No more space in target buffer
+        }
+
+        let src_start = input_tape.in_buff;
+        let src_end = src_start + actual_space;
+
+        let trg_start = in_buf_offset;
+        let trg_end = trg_start + actual_space;
+
+        in_buf[trg_start..trg_end].copy_from_slice(&input_tape.input_buffer[src_start..src_end]);
+
+        input_tape.in_buff += actual_space;
+        input_tape.input_size -= actual_space;
+
+        in_buf_offset += actual_space;
+        bytes_left -= actual_space;
+    }
+}
+pub fn copy_files_disk_to_tape(
+    tape_output: &mut MutexGuard<TapeOutput>,
+    input_tape: &mut MutexGuard<TapeInput>,
+    in_des: &mut File,
+    out_file: &mut File,
+    num_bytes: i32,
+    filename: &str,
+) {
+    let mut num_bytes = num_bytes as usize;
+    let original_num_bytes = num_bytes;
+
+    while num_bytes > 0 {
+        if input_tape.input_size == 0 {
+            let read_size = if num_bytes < DISK_IO_BLOCK_SIZE {
+                num_bytes
+            } else {
+                DISK_IO_BLOCK_SIZE
+            };
+
+            let rc: i32 = disk_fill_input_buffer(input_tape, in_des, read_size);
+
+            if rc != 0 {
+                if rc > 0 {
+                    let s = if num_bytes == 1 { "" } else { "s" };
+                    let message = format!(
+                        "File {} shrunk by {} byte{}, padding with zeros",
+                        filename, num_bytes, s
+                    );
+                    error(0, 0, format_args!("{}", message));
+                } else {
+                    let message = format!(
+                        "Read error at byte {} in file {}, padding with zeros",
+                        original_num_bytes - num_bytes,
+                        filename
+                    );
+                    error(0, 0, format_args!("{}", message));
+                }
+                write_nuls_to_file(tape_output, num_bytes, out_file, tape_buffered_write);
+                break;
+            }
+        }
+
+        let size = if input_tape.input_size < num_bytes {
+            input_tape.input_size
+        } else {
+            num_bytes
+        };
+
+        if get_crc_i_flag() {
+            let mut crc = get_crc();
+            for k in 0..size {
+                crc += input_tape.input_buffer[input_tape.in_buff + k] as usize;
+            }
+            set_crc(crc);
+        }
+
+        tape_buffered_write(
+            tape_output,
+            &mut input_tape.input_buffer[input_tape.in_buff..input_tape.in_buff + size].to_vec(),
+            out_file,
+            size,
+        );
+        num_bytes -= size;
+        input_tape.input_size -= size;
+        input_tape.in_buff += size;
+    }
+}
+
+pub fn copy_files_disk_to_disk(
+    output_tape: &mut MutexGuard<TapeOutput>,
+    input_tape: &mut MutexGuard<TapeInput>,
+    in_des: &mut File,
+    out_des: &mut File,
+    num_bytes: i32,
+    filename: &str,
+) {
+    let mut num_bytes = num_bytes as usize;
+    let original_num_bytes = num_bytes;
+    let mut rc: i32;
+
+    while num_bytes > 0 {
+        if input_tape.input_size == 0 {
+            let read_size = if num_bytes < DISK_IO_BLOCK_SIZE {
+                num_bytes
+            } else {
+                DISK_IO_BLOCK_SIZE
+            };
+
+            rc = disk_fill_input_buffer(input_tape, in_des, read_size);
+
+            if rc != 0 {
+                if rc > 0 {
+                    let message = format!(
+                        "File {} shrunk by {} byte{}, padding with zeros",
+                        filename,
+                        num_bytes,
+                        if num_bytes == 1 { "" } else { "s" }
+                    );
+                    error(0, 0, format_args!("{}", message));
+                } else {
+                    let message = format!(
+                        "Read error at byte {} in file {}, padding with zeros",
+                        original_num_bytes - num_bytes,
+                        filename
+                    );
+                    error(0, 0, format_args!("{}", message));
+                }
+                write_nuls_to_file(output_tape, num_bytes, out_des, disk_buffered_write);
+                break;
+            }
+        }
+
+        let size = if input_tape.input_size < num_bytes {
+            input_tape.input_size
+        } else {
+            num_bytes
+        };
+
+        if get_crc_i_flag() {
+            let mut crc = get_crc();
+            for k in 0..size {
+                crc += input_tape.input_buffer[input_tape.in_buff + k] as usize;
+            }
+
+            set_crc(crc);
+        }
+
+        disk_buffered_write(
+            output_tape,
+            &mut input_tape.input_buffer[input_tape.in_buff..input_tape.in_buff + size].to_vec(),
+            out_des,
+            size,
+        );
+        num_bytes -= size;
+        input_tape.input_size -= size;
+        input_tape.in_buff += size;
+    }
+}
+pub fn warn_if_file_changed(file_name: &str, old_file_size: u64, old_file_mtime: u64) {
+    let path = Path::new(file_name);
+    match fs::metadata(path) {
+        Ok(new_file_stat) => {
+            let new_file_size = new_file_stat.len();
+            let new_file_mtime = new_file_stat
+                .modified()
+                .ok()
+                .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())
+                .map(|duration| duration.as_secs())
+                .unwrap_or(0); //Handle error by setting to 0.
+
+            if new_file_size > old_file_size {
+                let diff = new_file_size - old_file_size;
+                println!("File {} grew, {} new bytes not copied", file_name, diff);
+            } else if new_file_mtime != old_file_mtime {
+                println!("File {} was modified while being copied", file_name);
+            }
+        }
+        Err(e) => {
+            eprintln!("Error getting file status for {}: {}", file_name, e);
+        }
+    }
+}
+pub fn create_all_directories(name: &str) {
+    if let Some(dir) = dir_name(name) {
+        let chars: Vec<char> = dir.chars().collect();
+        if chars.len() < 2 {
+            return;
+        }
+        if chars[0] != '.' || chars[1] != '\0' {
+            let fmt = if (get_warn_option() as usize & CPIO_WARN_INTERDIR) != 0 {
+                Some("Creating intermediate directory `%s`")
+            } else {
+                None
+            };
+            make_path(&dir.clone(), -1, -1, fmt);
+        }
+    } else {
+        error(PAXEXIT_FAILURE, 0, format_args!("virtual memory exhausted"));
+    }
+}
+pub fn prepare_append(
+    output_tape: &mut MutexGuard<TapeOutput>,
+    input_tape: &mut MutexGuard<TapeInput>,
+    out_file_des: &mut File,
+) {
+    let start_of_header = get_last_header_start();
+    let useful_bytes_in_block = (start_of_header % get_io_block_size()) as usize;
+
+    let start_of_block = start_of_header - useful_bytes_in_block as i32;
+
+    if out_file_des
+        .seek(SeekFrom::Start(start_of_block as u64))
+        .is_err()
+    {
+        error(
+            PAXEXIT_FAILURE,
+            std::io::Error::last_os_error().raw_os_error().unwrap_or(0),
+            format_args!("cannot seek on output"),
+        );
+    }
+
+    if useful_bytes_in_block > 0 {
+        let mut tmp_buf = vec![0u8; useful_bytes_in_block];
+        if out_file_des.read_exact(&mut tmp_buf).is_err() {
+            error(
+                PAXEXIT_FAILURE,
+                std::io::Error::last_os_error().raw_os_error().unwrap_or(0),
+                format_args!("read error"),
+            );
+        }
+
+        if out_file_des
+            .seek(SeekFrom::Start(start_of_block as u64))
+            .is_err()
+        {
+            error(
+                PAXEXIT_FAILURE,
+                std::io::Error::last_os_error().raw_os_error().unwrap_or(0),
+                format_args!("cannot seek on output"),
+            );
+        }
+
+        tape_buffered_write(
+            output_tape,
+            &mut tmp_buf,
+            out_file_des,
+            useful_bytes_in_block,
+        );
+    }
+
+    input_tape.input_size = 0;
+    input_tape.in_buff = 0;
+}
+
+// fn inode_val_compare(val1: &InodeVal, val2: &InodeVal) -> bool {
+//     val1.inode == val2.inode
+//         && val1.major_num == val2.major_num
+//         && val1.minor_num == val2.minor_num
+// }
+
+fn find_inode_val(node_num: u64, major_num: u64, minor_num: u64) -> Option<InodeVal> {
+    let sample = InodeVal {
+        inode: node_num,
+        major_num,
+        minor_num,
+        trans_inode: 0,
+        file_name: None,
+    };
+    HASH_TABLE.lock().unwrap().get(&sample).cloned()
+}
+
+pub fn find_inode_file(node_num: u64, major_num: u64, minor_num: u64) -> Option<String> {
+    find_inode_val(node_num, major_num, minor_num).and_then(|ival| ival.file_name)
+}
+
+pub fn add_inode(
+    node_num: u64,
+    file_name: Option<String>,
+    major_num: u64,
+    minor_num: u64,
+) -> InodeVal {
+    let mut temp = InodeVal {
+        inode: node_num,
+        major_num,
+        minor_num,
+        trans_inode: 0,
+        file_name,
+    };
+
+    unsafe {
+        if get_renumber_inodes_option() {
+            temp.trans_inode = NEXT_INODE;
+            NEXT_INODE += 1;
+        } else {
+            temp.trans_inode = temp.inode;
+        }
+    }
+
+    if let Ok(mut hash_table) = HASH_TABLE.lock() {
+        hash_table.insert(temp.clone(), temp.clone());
+    }
+    temp
+}
+pub fn get_inode_and_dev(hdr: &mut CpioFileStat, st: &std::fs::Metadata) {
+    unsafe {
+        if get_renumber_inodes_option() {
+            if st.nlink() > 1 {
+                if let Some(ival) = find_inode_val(st.ino(), major(st.dev()), minor(st.dev())) {
+                    hdr.c_ino = ival.trans_inode;
+                } else {
+                    let ival = add_inode(st.ino(), None, major(st.dev()), minor(st.dev()));
+                    hdr.c_ino = ival.trans_inode;
+                }
+            } else {
+                hdr.c_ino = NEXT_INODE;
+                NEXT_INODE += 1;
+            }
+        } else {
+            hdr.c_ino = st.ino();
+        }
+
+        if get_ignore_devno_option() {
+            hdr.c_dev_maj = 0;
+            hdr.c_dev_min = 0;
+        } else {
+            hdr.c_dev_maj = major(st.dev()) as i32;
+            hdr.c_dev_min = minor(st.dev()) as u32;
+        }
+    }
+}
+
+pub fn open_archive(file: &str) -> io::Result<File> {
+    let fd;
+    let copy_in: fn() -> io::Result<()> = process_copy_in; // Workaround for pcc bug.
+
+    let copy_func_guard = match COPY_FUNCTION.lock() {
+        Ok(guard) => guard,
+        Err(_) => {
+            return Err(io::Error::new(io::ErrorKind::Other, "Failed to lock COPY_FUNCTION"));
+        }
+    };
+
+    if *copy_func_guard == Some(copy_in) {
+        fd = rmtopen(
+            file,
+            libc::O_RDONLY,
+            MODE_RW,
+            get_rsh_command_option().as_deref().unwrap_or(""),
+        );
+    } else if !get_append_flag() {
+        fd = rmtopen(
+            file,
+            libc::O_WRONLY | libc::O_CREAT | libc::O_TRUNC,
+            MODE_RW,
+            get_rsh_command_option().as_deref().unwrap_or(""),
+        );
+    } else {
+        fd = rmtopen(
+            file,
+            libc::O_RDWR,
+            MODE_RW,
+            get_rsh_command_option().as_deref().unwrap_or(""),
+        );
+    }
+
+    fd
+}
+
+// const MTOFFL:i16 =	7;	/* Rewind and put the drive offline (eject?).  */
+// pub fn tape_offline(file:  &mut File) {
+//     // let mut control = Mtop {
+//     //     mt_op: MTOFFL ,
+//     //     mt_count: 1,
+//     // };
+
+//     // Use the ioctl function
+//     // let _ = unsafe { rmtioctl(tape_des,MTIOCTOP, &mut control) }; // Ignore the result
+
+// }
 
 pub fn get_next_reel(tape_des: &File) {
     let mut reel_number;
@@ -597,6 +1070,47 @@ pub fn get_next_reel(tape_des: &File) {
     }
 }
 
+pub fn set_new_media_message(message: &str) {
+    let _p = message.chars();
+    let mut prev_was_percent = false;
+    let mut d_found_at = None;
+
+    for (index, c) in message.chars().enumerate() {
+        if c == 'd' && prev_was_percent {
+            d_found_at = Some(index);
+            break;
+        }
+        prev_was_percent = c == '%';
+    }
+
+    if d_found_at.is_none() {
+        set_args_new_media_message(Some(xstrdup(message).to_string()));
+    } else {
+        let d_index = d_found_at.unwrap();
+        let length = d_index - 1;
+
+        unsafe {
+            let mut buf = xmalloc(length + 1);
+            for (i, c) in message[..length].chars().enumerate() {
+                buf[i] = c as u8;
+            }
+            buf[length] = 0; // Null-terminate
+
+            set_new_media_message_with_number(Some(String::from_utf8_unchecked(buf)));
+            //new_media_message_with_number = Some(String::from_utf8_unchecked(buf));
+
+            let after_d = &message[d_index + 1..];
+            let after_d_len = after_d.len();
+            let mut after_buf = xmalloc(after_d_len + 1);
+            for (i, c) in after_d.chars().enumerate() {
+                after_buf[i] = c as u8;
+            }
+            after_buf[after_d_len] = 0; // Null-terminate
+            set_new_media_message_after_number(Some(String::from_utf8_unchecked(after_buf)));
+        }
+    }
+}
+
 fn buf_all_zeros(buf: &[u8], size: usize) -> bool {
     buf.iter().take(size).all(|&x| x == 0)
 }
@@ -683,39 +1197,665 @@ fn sparse_write(fildes: &mut File, buf: &[u8], nbytes: usize, flush: bool) -> us
     nwritten + seek_count as usize
 }
 
-pub fn open_archive(file: &str) -> io::Result<File> {
-    let fd;
-    let copy_in: fn() -> io::Result<()> = process_copy_in; // Workaround for pcc bug.
+pub fn cpio_uid(uid: u32) -> u32 {
+    if get_set_owner_flag() {
+        get_set_owner()
+    } else {
+        uid
+    }
+}
+pub fn cpio_gid(uid: u32) -> u32 {
+    if get_set_group_flag() {
+        get_set_group()
+    } else {
+        uid
+    }
+}
 
-    let copy_func_guard = match COPY_FUNCTION.lock() {
-        Ok(guard) => guard,
+pub fn stat_to_cpio(st: &mut Metadata, hdr: &mut CpioFileStat) {
+    get_inode_and_dev(hdr, st);
+
+    hdr.c_mode = st.mode() & 0o7777;
+    if st.file_type().is_file() {
+        hdr.c_mode |= CP_IFREG;
+    } else if st.file_type().is_dir() {
+        hdr.c_mode |= CP_IFDIR;
+    } else if st.file_type().is_block_device() {
+        hdr.c_mode |= CP_IFBLK;
+    } else if st.file_type().is_char_device() {
+        hdr.c_mode |= CP_IFCHR;
+    } else if st.file_type().is_fifo() {
+        hdr.c_mode |= CP_IFIFO;
+    } else if st.file_type().is_symlink() {
+        hdr.c_mode |= CP_IFLNK;
+    } else if st.file_type().is_socket() {
+        hdr.c_mode |= CP_IFSOCK;
+    }
+
+    hdr.c_nlink = st.nlink() as usize;
+    hdr.c_uid = cpio_uid(st.uid());
+    hdr.c_gid = cpio_gid(st.gid());
+
+    if st.file_type().is_block_device() || st.file_type().is_char_device() {
+        hdr.c_rdev_maj = major(st.rdev()) as i32;
+        hdr.c_rdev_min = minor(st.rdev()) as u32;
+    } else {
+        hdr.c_rdev_maj = 0;
+        hdr.c_rdev_min = 0;
+    }
+
+    hdr.c_mtime = st
+        .modified()
+        .map(|t| t.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_secs() as i64)
+        .unwrap_or(0);
+    hdr.c_filesize = st.len() as i64;
+    hdr.c_chksum = 0;
+    hdr.c_tar_linkname = None;
+}
+
+// // 在rust 中 metadata 是只读的
+// pub  fn cpio_to_stat(st: *mut stat, hdr: *mut CpioFileStat) {
+//     unsafe  {
+//         libc::memset(st as *mut libc::c_void, 0, size_of::<stat>());
+//     (*st).st_dev = makedev((*hdr).c_dev_maj as u32, (*hdr).c_dev_min);
+//     (*st).st_ino = (*hdr).c_ino;
+//     (*st).st_mode = (*hdr).c_mode & 0o777;
+
+//     if (*hdr).c_mode & CP_IFREG != 0 {
+//         (*st).st_mode |= S_IFREG;
+//     } else if (*hdr).c_mode & CP_IFDIR != 0 {
+//         (*st).st_mode |= S_IFDIR;
+//     }
+
+//     #[cfg(target_os = "linux")]
+//     {
+//         if (*hdr).c_mode & CP_IFBLK != 0 {
+//             (*st).st_mode |= S_IFBLK;
+//         }
+//         if (*hdr).c_mode & CP_IFCHR != 0 {
+//             (*st).st_mode |= S_IFCHR;
+//         }
+//         // if (*hdr).c_mode & CP_IFIFO != 0 {
+//         //     (*st).st_mode |= S_IFFIFO;
+//         // }
+//         if (*hdr).c_mode & CP_IFLNK != 0 {
+//             (*st).st_mode |= S_IFLNK;
+//         }
+//         if (*hdr).c_mode & CP_IFSOCK != 0 {
+//             (*st).st_mode |= S_IFSOCK;
+//         }
+//         // if (*hdr).c_mode & CP_IFNWK != 0 {
+//         //     (*st).st_mode |= S_IFNWK;
+//         // }
+//     }
+
+//     (*st).st_nlink = (*hdr).c_nlink as u64;
+//     (*st).st_uid = cpio_uid((*hdr).c_uid);
+//     (*st).st_gid = cpio_gid((*hdr).c_gid);
+//     (*st).st_rdev = makedev((*hdr).c_rdev_maj as u32 , (*hdr).c_rdev_min);
+//     (*st).st_mtime = (*hdr).c_mtime;
+//     (*st).st_size = (*hdr).c_filesize;
+
+//     }
+
+// }
+
+pub fn fchown_or_chown(
+    file: Option<&File>,
+    name: &Path,
+    uid: uid_t,
+    gid: gid_t,
+) -> std::io::Result<()> {
+    if let Some(file_ref) = file {
+        let fd = file_ref.as_raw_fd();
+        let result = unsafe { fchown(fd, uid, gid) };
+        if result == 0 {
+            Ok(())
+        } else {
+            Err(std::io::Error::last_os_error())
+        }
+    } else {
+        match name.to_str() {
+            Some(name_str) => {
+                match std::ffi::CString::new(name_str) {
+                    Ok(name_cstr) => {
+                        let result = unsafe { chown(name_cstr.as_ptr(), uid, gid) };
+                        if result == 0 {
+                            Ok(())
+                        } else {
+                            Err(std::io::Error::last_os_error())
+                        }
+                    }
+                    Err(_) => Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid path string")),
+                }
+            }
+            None => Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid path encoding")),
+        }
+    }
+}
+
+pub fn fchmod_or_chmod(file: Option<&File>, name: &Path, mode: mode_t) -> std::io::Result<()> {
+    if let Some(file_ref) = file {
+        let fd = file_ref.as_raw_fd();
+        let result = unsafe { fchmod(fd, mode) };
+        if result == 0 {
+            Ok(())
+        } else {
+            Err(std::io::Error::last_os_error())
+        }
+    } else {
+        match name.to_str() {
+            Some(name_str) => {
+                match std::ffi::CString::new(name_str) {
+                    Ok(name_cstr) => {
+                        let result = unsafe { libc::chmod(name_cstr.as_ptr(), mode) };
+                        if result == 0 {
+                            Ok(())
+                        } else {
+                            Err(std::io::Error::last_os_error())
+                        }
+                    }
+                    Err(_) => Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid path string")),
+                }
+            }
+            None => Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid path encoding")),
+        }
+    }
+}
+
+pub fn set_perms(file: Option<&File>, header: &mut CpioFileStat) {
+    let c_name = header.get_c_name();
+    
+    // 验证和清理路径
+    let safe_path = match validate_and_sanitize_path(&c_name) {
+        Ok(path) => path,
         Err(_) => {
-            return Err(io::Error::new(io::ErrorKind::Other, "Failed to lock COPY_FUNCTION"));
+            // 如果路径验证失败，记录错误但不中断操作
+            // 这可能是由于符号链接或其他特殊情况
+            return;
+        }
+    };
+    
+    if !get_no_chown_flag() {
+        let uid = cpio_uid(header.c_uid);
+        let gid = cpio_gid(header.c_gid);
+
+        match fchown_or_chown(file, &safe_path, uid, gid) {
+            Ok(_) => (),
+            Err(e) => {
+                // 对于符号链接，更宽容地处理权限设置错误
+                match e.raw_os_error() {
+                    Some(libc::EPERM) | Some(libc::ENOENT) | Some(libc::EROFS)
+                    | Some(libc::EINVAL) | Some(libc::EACCES) | Some(libc::ENOTSUP) => {
+                        // 这些错误对于符号链接来说是可以忽略的
+                    }
+                    _ => {
+                        chown_uid_error_details(&c_name, uid, gid);
+                    }
+                }
+            }
+        }
+    }
+
+    if (fchmod_or_chmod(file, &safe_path, header.c_mode)).is_err() {
+        chown_mode_error_details(&c_name, header.c_mode);
+    }
+
+    if get_retain_time_flag() {
+        set_file_times(file, &c_name, header.c_mtime, header.c_mtime, 0);
+    }
+}
+
+pub fn set_file_times(file: Option<&File>, name: &str, atime: time_t, mtime: time_t, atflag: i32) {
+    let mut ts: [timespec; 2] = unsafe { std::mem::zeroed() };
+
+    ts[0].tv_sec = atime;
+    ts[1].tv_sec = mtime;
+
+    match fdutimensat(file, AT_FDCWD, Some(name), &ts, atflag) {
+        Ok(_) => (),
+        Err(_e) => {
+            utime_error(name);
+        }
+    }
+}
+
+// pub fn cpio_realloc_c_name(file_hdr: &mut CpioFileStat, len: usize) {
+//     while file_hdr.c_name_buflen < len {
+//         let new_vec = x2realloc(file_hdr.c_name.as_bytes().to_vec(), &mut file_hdr.c_name_buflen);
+//         file_hdr
+//         file_hdr.c_name = unsafe { String::from_utf8_unchecked(new_vec) };
+//     }
+// }
+
+pub fn cpio_set_c_name(file_hdr: &mut CpioFileStat, name: &str) {
+    file_hdr.set_c_name(name);
+    //    file_hdr.c_namesize = name.len() + 1;
+
+    // let len = name.len() + 1;
+    // cpio_realloc_c_name(file_hdr, len);
+    // file_hdr.c_namesize = len;
+    // file_hdr.c_name = name.to_string();
+}
+pub fn cpio_safer_name_suffix(
+    name: &mut String,
+    link_target: bool,
+    absolute_names: bool,
+    strip_leading_dots: bool,
+) {
+    let p = safer_name_suffix(name, link_target, absolute_names);
+
+    let mut adjusted_p = p.clone(); // Create a mutable copy
+
+    if strip_leading_dots && adjusted_p != "./" {
+        // strip leading `./' from the filename.
+        while adjusted_p.starts_with("./") {
+            adjusted_p = adjusted_p[2..].trim_start_matches('/').to_string();
+        }
+    }
+
+    if adjusted_p != *name {
+        // The 'adjusted_p' string is shortened version of 'name' with one exception;
+        // when the 'name' points to an empty string (buffer where name[0] == '\0') the
+        // 'adjusted_p' then points to static string ".". So caller needs to ensure there
+        // are at least two bytes available in 'name' buffer so memmove succeeds.
+        *name = adjusted_p;
+    }
+}
+
+pub fn delay_cpio_set_stat(file_stat: &CpioFileStat, invert_permissions: mode_t) {
+    if let Ok(mut head) = DELAYED_SET_STAT_HEAD.lock() {
+        let new_node = Arc::new(Mutex::new(DelayedSetStat {
+            stat: file_stat.clone(),
+            invert_permissions,
+            next: head.clone(),
+        }));
+
+        *head = Some(new_node);
+    }
+}
+
+pub fn delay_set_stat(file_name: &str, st: &mut Metadata, invert_permissions: u32) {
+    let mut fs = CpioFileStat::new();
+
+    stat_to_cpio(st, &mut fs);
+
+    fs.set_c_name(file_name);
+
+    delay_cpio_set_stat(&fs, invert_permissions);
+}
+#[allow(dead_code)]
+pub fn repair_inter_delayed_set_stat(dir_stat_info: &mut Metadata) -> i32 {
+    let head = match DELAYED_SET_STAT_HEAD.lock() {
+        Ok(guard) => guard,
+        Err(_) => return -1,
+    };
+    let mut current = head.clone();
+
+    while let Some(node) = current {
+        let mut borrowed_node = match node.lock() {
+            Ok(guard) => guard,
+            Err(_) => return -1,
+        };
+
+        let c_name = borrowed_node.stat.get_c_name();
+
+        // 验证和清理路径
+        let safe_path = match validate_and_sanitize_path(&c_name) {
+            Ok(path) => path,
+            Err(_) => {
+                // 如果路径验证失败，跳过这个节点
+                current = borrowed_node.next.clone();
+                continue;
+            }
+        };
+        
+        match fs::metadata(&safe_path) {
+            Ok(st) => {
+                if st.dev() == dir_stat_info.dev() && st.ino() == dir_stat_info.ino() {
+                    stat_to_cpio(dir_stat_info, &mut borrowed_node.stat);
+                    let umask = get_newdir_umask();
+                    borrowed_node.invert_permissions =
+                        (dir_stat_info.mode() ^ st.mode()) & MODE_RWX & !umask;
+                    return 0;
+                }
+            }
+            Err(_) => {
+                stat_error(&borrowed_node.stat.get_c_name());
+                return -1;
+            }
+        }
+
+        current = borrowed_node.next.clone();
+    }
+
+    1
+}
+
+pub fn repair_delayed_set_stat(file_hdr: &mut CpioFileStat) -> i32 {
+    let head = match DELAYED_SET_STAT_HEAD.lock() {
+        Ok(guard) => guard,
+        Err(_) => return -1,
+    };
+    let mut current = head.clone();
+
+    while let Some(node) = current.clone() {
+        let mut borrowed_node = match node.lock() {
+            Ok(guard) => guard,
+            Err(_) => return -1,
+        };
+        if file_hdr.get_c_name() == borrowed_node.stat.get_c_name() {
+            borrowed_node.invert_permissions = 0;
+            borrowed_node.stat.c_mode = file_hdr.c_mode; // Copy c_mode
+                                                         // ... Copy other fields except c_name ...
+            return 0;
+        }
+        current = borrowed_node.next.clone();
+    }
+    1
+}
+
+pub fn apply_delayed_set_stat() {
+    let mut head = match DELAYED_SET_STAT_HEAD.lock() {
+        Ok(guard) => guard,
+        Err(_) => return,
+    };
+    while let Some(node) = head.clone() {
+        let mut borrowed_node = match node.lock() {
+            Ok(guard) => guard,
+            Err(_) => return,
+        };
+        if borrowed_node.invert_permissions != 0 {
+            borrowed_node.stat.c_mode ^= borrowed_node.invert_permissions;
+        }
+
+        set_perms(None, &mut borrowed_node.stat);
+
+        // Remove the node from the list
+        *head = borrowed_node.next.clone();
+    }
+}
+pub fn make_path(argpath: &str, owner: i32, group: i32, verbose_fmt_string: Option<&str>) -> i32 {
+    // 验证和清理路径
+    let safe_path = match validate_and_sanitize_path(argpath) {
+        Ok(path) => path,
+        Err(_) => {
+            error(
+                0,
+                0,
+                format_args!("cannot make directory `{}`: invalid or unsafe path", argpath),
+            );
+            return 1;
         }
     };
 
-    if *copy_func_guard == Some(copy_in) {
-        fd = rmtopen(
-            file,
-            libc::O_RDONLY,
-            MODE_RW,
-            get_rsh_command_option().as_deref().unwrap_or(""),
-        );
-    } else if !get_append_flag() {
-        fd = rmtopen(
-            file,
-            libc::O_WRONLY | libc::O_CREAT | libc::O_TRUNC,
-            MODE_RW,
-            get_rsh_command_option().as_deref().unwrap_or(""),
-        );
+    // 如果目录已存在也会返回 Ok
+    match fs::create_dir_all(&safe_path) {
+        Ok(_) => {
+            // 如果需要显示创建信息
+            if let Some(fmt) = verbose_fmt_string {
+                error(0, 0, format_args!("{}{}", fmt, argpath));
+            }
+
+            // 设置所有者和权限
+            if owner != -1 || group != -1 {
+                if let Ok(stats) = fs::metadata(&safe_path) {
+                    let mut mutable_stats = stats;
+                    delay_set_stat(argpath, &mut mutable_stats, 0);
+                }
+            }
+            0
+        }
+        Err(e) => {
+            error(
+                0,
+                e.raw_os_error().unwrap_or(0),
+                format_args!("cannot make directory `{}`", argpath),
+            );
+            1
+        }
+    }
+}
+
+// pub fn make_path(argpath: &str, owner: i32, group: i32, verbose_fmt_string: Option<&str>) -> i32 {
+//     let dirpath = argpath.to_string();
+//     let path = Path::new(&dirpath);
+
+//     match fs::create_dir_all(path) {
+//         Ok(_) => {
+//             return 0;
+//         },
+//         Err(e) => {
+//             error(
+//                 0,
+//                 e.raw_os_error().unwrap_or(0),
+//                 format_args!("cannot make directory `{}`", dirpath),
+//             );
+//             return 1;
+//         },
+//     }
+
+// if fs::metadata(path).is_err() {
+//     let tmpmode = MODE_RWX & !get_newdir_umask();
+//     let invert_permissions = if std::env::var("USER").unwrap_or_default() == "root" {
+//         0
+//     } else {
+//         MODE_WXUSR & !tmpmode
+//     };
+
+//     let mut slash = dirpath.clone();
+//     if slash.starts_with('/') {
+//         slash = slash.trim_start_matches('/').to_string();
+//     }
+
+//     let mut current_dir = String::new();
+//     for component in slash.split('/') {
+//         current_dir.push_str(component);
+//         let current_path = Path::new(&current_dir);
+
+//         if fs::metadata(current_path).is_err() {
+//             let mut builder = fs::DirBuilder::new();
+//             builder.mode(tmpmode ^ invert_permissions);
+
+//             if let Err(e) = builder.create(current_path) {
+//                 error(
+//                     0,
+//                     e.raw_os_error().unwrap_or(0),
+//                     format_args!("cannot make directory `{}`", current_dir),
+//                 );
+//                 return 1;
+//             } else {
+//                 if let Some(fmt_str) = verbose_fmt_string {
+//                     error(0, 0, format_args!("{}{}", fmt_str, current_dir));
+//                 }
+
+//                 if let Ok(stats) = fs::metadata(current_path) {
+//                     let mut mutable_stats = stats;
+//                     if owner != -1 {
+//                         // mutable_stats.st_uid = owner as u32; // cannot mutate
+//                     }
+//                     if group != -1 {
+//                         // mutable_stats.st_gid = group as u32; // cannot mutate
+//                     }
+
+//                     delay_set_stat(&current_dir, &mut mutable_stats, invert_permissions);
+//                 } else {
+//                     stat_error(&current_dir);
+//                 }
+//             }
+//         } else if !fs::metadata(current_path).unwrap().is_dir() {
+//             error(
+//                 0,
+//                 0,
+//                 format_args!("`{}` exists but is not a directory", current_dir),
+//             );
+//             return 1;
+//         }
+
+//         current_dir.push('/');
+//     }
+
+//     if let Err(e) = fs::create_dir_all(path) {
+//         if e.raw_os_error().unwrap_or(0) != 17
+//             || fs::metadata(path).is_err()
+//             || !fs::metadata(path).unwrap().is_dir()
+//         {
+//             error(
+//                 0,
+//                 e.raw_os_error().unwrap_or(0),
+//                 format_args!("cannot make directory `{}`", dirpath),
+//             );
+//             return 1;
+//         }
+//     } else if let Ok(stats) = fs::metadata(path) {
+//         let mut mutable_stats = stats;
+//         if owner != -1 {
+//             // mutable_stats.st_uid = owner as u32; // cannot mutate
+//         }
+//         if group != -1 {
+//             // mutable_stats.st_gid = group as u32; // cannot mutate
+//         }
+//         delay_set_stat(&dirpath, &mut mutable_stats, invert_permissions);
+//     } else {
+//         stat_error(&dirpath);
+//     }
+
+//     if let Some(fmt_str) = verbose_fmt_string {
+//         error(0, 0, format_args!("{}{}", fmt_str, dirpath));
+//     }
+// } else if !fs::metadata(path).unwrap().is_dir() {
+//     error(
+//         0,
+//         0,
+//         format_args!("`{}` exists but is not a directory", dirpath),
+//     );
+//     return 1;
+// }
+
+// 0
+//}
+
+
+
+
+
+pub fn cpio_mkdir(file_hdr: &mut CpioFileStat, setstat_delayed: &mut bool) -> std::io::Result<()> {
+    let mode = file_hdr.c_mode;
+    let c_name = file_hdr.get_c_name();
+    
+    // 验证和清理路径
+    let safe_path = validate_and_sanitize_path(&c_name)?;
+
+    if (file_hdr.c_mode & S_IWUSR) == 0 {
+        let _new_mode = mode | S_IWUSR;
+        match fs::create_dir(&safe_path) {
+            Ok(_) => {
+                delay_cpio_set_stat(file_hdr, 0);
+                *setstat_delayed = true;
+                Ok(())
+            }
+            Err(e) => Err(e),
+        }
     } else {
-        fd = rmtopen(
-            file,
-            libc::O_RDWR,
-            MODE_RW,
-            get_rsh_command_option().as_deref().unwrap_or(""),
-        );
+        match fs::create_dir(&safe_path) {
+            Ok(_) => {
+                *setstat_delayed = false;
+                Ok(())
+            }
+            Err(e) => Err(e),
+        }
+    }
+}
+
+pub fn cpio_create_dir(file_hdr: &mut CpioFileStat, existing_dir: bool) -> i32 {
+    if get_to_stdout_option() {
+        return 0;
+    }
+    let mut c_name = file_hdr.get_c_name();
+
+    strip_trailing_slashes(&mut c_name);
+
+    file_hdr.set_c_name(&c_name);
+
+    if file_hdr.c_name[0] == b'.' && file_hdr.c_name[1] == b'\0' {
+        return 0;
+    }
+    let c_name = file_hdr.get_c_name();
+
+    let mut setstat_delayed = false;
+    let mut res = if !existing_dir {
+        cpio_mkdir(file_hdr, &mut setstat_delayed)
+    } else {
+        Ok(())
+    };
+
+    if res.is_err() && get_create_dir_flag() {
+        create_all_directories(&c_name);
+        res = cpio_mkdir(file_hdr, &mut setstat_delayed);
     }
 
-    fd
+    if res.is_err() {
+        if std::io::Error::last_os_error().raw_os_error() != Some(EEXIST) {
+            mkdir_error(&c_name);
+            return -1;
+        }
+
+        match lstat(&c_name) {
+            Ok(file_stat) => {
+                if !s_isdir(file_stat.mode()) {
+                    error(
+                        0,
+                        0,
+                        format_args!("{:?} is not a directory", quotearg_colon(&c_name)),
+                    );
+                    return -1;
+                }
+            }
+            Err(_) => {
+                stat_error(&c_name);
+                return -1;
+            }
+        }
+    }
+
+    if !setstat_delayed && repair_delayed_set_stat(file_hdr) != 0 {
+        set_perms(None, file_hdr);
+    }
+
+    0
 }
+
+pub fn change_dir() {
+    if let Some(ref dir) = get_change_directory_option() {
+        match env::set_current_dir(dir) {
+            Ok(()) => (), // 成功切换，直接返回
+            Err(e) if e.kind() == io::ErrorKind::NotFound && get_create_dir_flag() => {
+                // 目录不存在且允许创建
+                let warn_msg = if get_warn_option() as usize & CPIO_WARN_INTERDIR != 0 {
+                    Some("Creating directory `%s`")
+                } else {
+                    None
+                };
+
+                if make_path(dir, -1, -1, warn_msg) != 0 {
+                    // 创建失败，退出（这里返回错误）
+                    return;
+                }
+
+                // 再次尝试切换
+                let _ = env::set_current_dir(dir);
+            }
+            Err(_e) => {
+                // 其他错误，报告并退出
+            }
+        }
+    }
+}
+
+pub fn arf_stores_inode_p(arf: ArchiveFormat) -> bool {
+    match arf {
+        ArchiveFormat::Tar | ArchiveFormat::Ustar => false,
+        _ => true,
+    }
+}
+
