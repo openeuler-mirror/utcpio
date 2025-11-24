@@ -16,6 +16,7 @@ mod userspec;
 mod appargs;
 mod util;
 mod copyin;
+mod copypass;
 
 use global::*;
 use initramfs::*;
