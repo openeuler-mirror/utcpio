@@ -17,6 +17,7 @@ mod appargs;
 mod util;
 mod copyin;
 mod copypass;
+mod copyout;
 
 use global::*;
 use initramfs::*;
