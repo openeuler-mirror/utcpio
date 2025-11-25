@@ -52,6 +52,81 @@ use gnu::error::*;
 use gnu::gettime::*;
 use gnu::quotearg::*;
 
+static mut CURRENT_TIME: timespec = timespec {
+    tv_sec: 0,
+    tv_nsec: 0,
+};
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct DelayedLinkKey {
+    pub dev: u64, // dev_t
+    pub ino: u64, // ino_t
+}
+
+#[derive(Debug, Clone)]
+struct DelayedLinkValue {
+    pub mode: u32,  // mode_t
+    pub uid: u32,   // uid_t
+    pub gid: u32,   // gid_t
+    pub mtime: i64, // time_t, representing seconds since epoch
+    pub source: String,
+    pub target: String,
+}
+
+struct DelayedLink {
+    table: HashMap<DelayedLinkKey, DelayedLinkValue>,
+}
+
+impl DelayedLink {
+    fn new() -> Self {
+        DelayedLink {
+            table: HashMap::new(),
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.table.is_empty()
+    }
+    // fn dl_hash(&self, entry: &DelayedLinkKey, table_size: usize) -> usize {
+    //     let n = entry.dev;
+    //     let nshift = (mem::size_of::<u64>() - mem::size_of::<u64>()) * 8; // CHAR_BIT is 8
+    //     let shifted_n = if nshift > 0 { n << nshift } else { n };
+    //     (shifted_n ^ entry.ino) as usize % table_size
+    // }
+
+    // fn dl_compare(&self, a: &DelayedLinkKey, b: &DelayedLinkKey) -> bool {
+    //     a.dev == b.dev && a.ino == b.ino
+    // }
+    // fn get_first(&self) -> Option<(&DelayedLinkKey, &DelayedLinkValue)> {
+    //     self.table.iter().next()
+    // }
+
+    // fn get_next<'a>(
+    //     &'a self,
+    //     current_key: &'a DelayedLinkKey,
+    // ) -> Option<(&'a DelayedLinkKey, &'a DelayedLinkValue)> {
+    //     let mut iter = self.table.iter();
+    //     while let Some((key, _)) = iter.next() {
+    //         if key == current_key {
+    //             return iter.next();
+    //         }
+    //     }
+    //     None
+    // }
+
+    fn insert(&mut self, key: DelayedLinkKey, value: DelayedLinkValue) {
+        self.table.insert(key, value);
+    }
+
+    // fn get(&self, key: &DelayedLinkKey) -> Option<&DelayedLinkValue> {
+    //     self.table.get(key)
+    // }
+
+    // fn remove(&mut self, key: &DelayedLinkKey) -> Option<DelayedLinkValue> {
+    //     self.table.remove(key)
+    // }
+}
+
 pub fn process_copy_in() -> io::Result<()> {
     
 
