@@ -1,6 +1,9 @@
-// SPDX-FileCopyrightText: 2025 UnionTech Software Technology Co., Ltd.
-//
-// # SPDX-License-Identifier: GPL-3.0-or-later
+/*
+ * SPDX-FileCopyrightText: 2025 UnionTech Software Technology Co., Ltd.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 
 
 #![allow(
@@ -394,10 +397,42 @@ pub fn process_copy_pass() -> io::Result<()> {
     Ok(())
 }
 
-pub fn link_to_name(link_name: &str, link_target: &str) -> i32{
-    0
-}
-
 pub fn link_to_maj_min_ino(file_name: &str, st_dev_maj: u32, st_dev_min: u32, st_ino: u64) -> i32 {
-    0
+    if let Some(link_name) = find_inode_file(st_ino, st_dev_maj as u64, st_dev_min as u64) {
+        link_to_name(file_name, &link_name)
+    } else {
+        add_inode(
+            st_ino,
+            Some(file_name.to_string()),
+            st_dev_maj as u64,
+            st_dev_min as u64,
+        );
+        -1
+    }
+}
+pub fn link_to_name(link_name: &str, link_target: &str) -> i32 {
+    let link_name_path = Path::new(link_name);
+    let link_target_path = Path::new(link_target);
+
+    let mut res = fs::hard_link(link_target_path, link_name_path);
+
+    if res.is_err() && get_create_dir_flag() {
+        create_all_directories(link_name);
+        res = fs::hard_link(link_target_path, link_name_path);
+    }
+
+    match res {
+        Ok(_) => {
+            if get_verbose_flag() {
+                println!("{} linked to {}", link_target, link_name);
+            }
+            0 // 成功
+        }
+        Err(e) => {
+            if get_link_flag() {
+                eprintln!("cannot link {} to {}: {}", link_target, link_name, e);
+            }
+            e.raw_os_error().unwrap_or(1) // 返回错误码或 1
+        }
+    }
 }
