@@ -132,3 +132,25 @@ pub fn process_copy_in() -> io::Result<()> {
 
     Ok(())
 }
+
+
+pub fn warn_junk_bytes(bytes_skipped: u64) {
+    // 只有当跳过的字节数超过一定阈值时才显示警告
+    const WARN_THRESHOLD: u64 = 100; // 跳过超过100字节才显示警告
+
+    if bytes_skipped > WARN_THRESHOLD {
+        error(
+            0,
+            0,
+            format_args!("warning: skipped {} bytes of junk", bytes_skipped),
+        );
+    }
+}
+
+pub fn from_octal(where_: &Vec<u8>) -> u64 {
+    from_ascii(where_, where_.len(), LG_8)
+}
+
+fn from_ascii(where_: &Vec<u8>, digs: usize, logbase: u32) -> u64 {
+    0
+}
