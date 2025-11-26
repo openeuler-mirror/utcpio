@@ -254,6 +254,24 @@ pub fn writeout_final_defers(
     }
 }
 
+
+pub fn to_ascii(where_: &mut [u8], v: u64, digits: usize, logbase: u32, nul: bool) -> bool {
+    let codetab = b"0123456789ABCDEF";
+    let mut v = v;
+    let mut digits = digits;
+
+    if nul {
+        where_[digits - 1] = 0;
+        digits -= 1;
+    }
+    while digits > 0 {
+        where_[digits - 1] = codetab[(v & ((1 << logbase) - 1)) as usize];
+        v >>= logbase;
+        digits -= 1;
+    }
+    v != 0
+}
+
 fn write_out_header(
     output_tape: &mut MutexGuard<TapeOutput>,
     file_hdr: &mut CpioFileStat,

@@ -18,6 +18,7 @@ mod util;
 mod copyin;
 mod copypass;
 mod copyout;
+mod tar;
 
 use global::*;
 use initramfs::*;
