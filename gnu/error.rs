@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: 2025 UnionTech Software Technology Co., Ltd.
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
+// SPDX-FileCopyrightText: 2025 UnionTech Software Technology Co., Ltd.
+//
+// # SPDX-License-Identifier: GPL-3.0-or-later
 
 use std::fmt;
 /*error.c error.h 实际上没有处理，使用的函数系统错误处理函数

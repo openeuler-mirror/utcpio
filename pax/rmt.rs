@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: 2025 UnionTech Software Technology Co., Ltd.
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
+// SPDX-FileCopyrightText: 2025 UnionTech Software Technology Co., Ltd.
+//
+// # SPDX-License-Identifier: GPL-3.0-or-later
 
 #![allow(clippy::collapsible_if, clippy::partialeq_to_none)]
 
@@ -214,10 +212,7 @@ pub fn rmtlseek(file: &mut File, offset: i64, whence: i32) -> i64 {
         rmt_lseek__((fd - REM_BIAS) as usize, offset, pos) // Corrected SeekFrom usage
     } else {
         match file.seek(pos) {
-            Ok(offset) => match offset.try_into() {
-                Ok(offset_i64) => offset_i64,
-                Err(_) => -1,
-            },
+            Ok(offset) => offset.try_into().unwrap_or(-1),
             Err(_) => -1,
         }
     }

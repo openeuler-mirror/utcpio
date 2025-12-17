@@ -12,7 +12,7 @@ fn main() {
     let out_dir = Path::new("target").join(&profile);
     let locale_out_dir = out_dir.join("locale");
     let domain = "utcpio"; // 与你的项目名称一致
-    // 确保输出目录存在
+                           // 确保输出目录存在
     fs::create_dir_all(&locale_out_dir).expect("Failed to create output directory");
     // 遍历 po 目录中的 .po 文件
     for entry in fs::read_dir(po_dir).expect("Failed to read po directory") {
@@ -47,7 +47,7 @@ fn main() {
             if file_path.is_file() {
                 let dest_file_path = dest_path_doc.join(entry.file_name());
                 fs::copy(&file_path, dest_file_path).unwrap();
-                println!("cargo:warning=Copied doc file: {:?}", file_path);
+                // println!("cargo:warning=Copied doc file: {:?}", file_path);
             }
         }
     }
@@ -70,7 +70,7 @@ fn main() {
             if file_path.is_file() {
                 let dest_file_path = dest_path_doc.join(entry.file_name());
                 fs::copy(&file_path, dest_file_path).unwrap();
-                println!("cargo:warning=Copied doc file: {:?}", file_path);
+                // println!("cargo:warning=Copied doc file: {:?}", file_path);
             }
         }
     }
@@ -96,7 +96,7 @@ fn main() {
                 if !status.success() {
                     panic!("msgfmt failed for {}", file_path.display());
                 }
-                println!("cargo:warning=Copied po file: {:?}", file_path);
+                // println!("cargo:warning=Copied po file: {:?}", file_path);
             }
         }
     }

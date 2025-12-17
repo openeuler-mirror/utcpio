@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: 2025 UnionTech Software Technology Co., Ltd.
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
+// SPDX-FileCopyrightText: 2025 UnionTech Software Technology Co., Ltd.
+//
+// # SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::externs::*;
 use crate::initramfs::*;
@@ -46,9 +44,9 @@ pub fn set_archive_des(value: File) -> io::Result<()> {
         Ok(())
     } else {
         // 如果已初始化，获取锁并设置
-        let mutex = ARCHIVE_DES.get().ok_or_else(|| {
-            io::Error::new(io::ErrorKind::NotFound, "ARCHIVE_DES not found")
-        })?;
+        let mutex = ARCHIVE_DES
+            .get()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "ARCHIVE_DES not found"))?;
         let mut guard = mutex.lock().map_err(|e| {
             io::Error::new(
                 io::ErrorKind::Other,
@@ -206,6 +204,7 @@ pub fn set_num_patterns(value: i32) {
         // 处理 APPARGS 未初始化的情况
     }
 }
+
 pub fn set_directory_name(value: Option<String>) {
     APPARGS.get().unwrap().lock().unwrap().directory_name = value;
 }
@@ -492,19 +491,6 @@ pub fn get_output_archive_name() -> Option<String> {
         .output_archive_name
         .clone()
 }
-pub fn get_sparse_flag() -> bool {
-    APPARGS.get().unwrap().lock().unwrap().sparse_flag
-}
-
-pub fn get_rsh_command_option() -> Option<String> {
-    APPARGS
-        .get()
-        .unwrap()
-        .lock()
-        .unwrap()
-        .rsh_command_option
-        .clone()
-}
 
 pub fn set_output_archive_name(value: Option<String>) {
     APPARGS.get().unwrap().lock().unwrap().output_archive_name = value;
@@ -544,6 +530,15 @@ pub fn set_renumber_inodes_option(value: bool) {
         .renumber_inodes_option = value;
 }
 
+pub fn get_rsh_command_option() -> Option<String> {
+    APPARGS
+        .get()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .rsh_command_option
+        .clone()
+}
 
 pub fn set_rsh_command_option(value: Option<String>) {
     APPARGS.get().unwrap().lock().unwrap().rsh_command_option = value;
@@ -605,7 +600,9 @@ pub fn set_warn_option(value: i32) {
     APPARGS.get().unwrap().lock().unwrap().warn_option = value;
 }
 
-
+pub fn get_sparse_flag() -> bool {
+    APPARGS.get().unwrap().lock().unwrap().sparse_flag
+}
 
 pub fn set_sparse_flag(value: bool) {
     APPARGS.get().unwrap().lock().unwrap().sparse_flag = value;
@@ -685,4 +682,3 @@ pub fn get_rename_batch_file() -> Option<String> {
         .rename_batch_file
         .clone()
 }
-

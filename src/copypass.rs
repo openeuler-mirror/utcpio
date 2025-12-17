@@ -1,10 +1,6 @@
-/*
- * SPDX-FileCopyrightText: 2025 UnionTech Software Technology Co., Ltd.
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
-
-
+// SPDX-FileCopyrightText: 2025 UnionTech Software Technology Co., Ltd.
+//
+// # SPDX-License-Identifier: GPL-3.0-or-later
 
 #![allow(
     clippy::suspicious_open_options,
@@ -47,11 +43,18 @@ pub fn process_copy_pass() -> io::Result<()> {
     let mut output_name = DYNAMIC_STRING_INITIALIZER;
 
     let mut input_tape: std::sync::MutexGuard<'_, TapeInput> = TAPE_INPUT.lock().map_err(|e| {
-        io::Error::new(io::ErrorKind::Other, format!("Failed to lock TAPE_INPUT: {}", e))
+        io::Error::new(
+            io::ErrorKind::Other,
+            format!("Failed to lock TAPE_INPUT: {}", e),
+        )
     })?;
-    let mut output_tape: std::sync::MutexGuard<'_, TapeOutput> = TAPE_OUTPUT.lock().map_err(|e| {
-        io::Error::new(io::ErrorKind::Other, format!("Failed to lock TAPE_OUTPUT: {}", e))
-    })?;
+    let mut output_tape: std::sync::MutexGuard<'_, TapeOutput> =
+        TAPE_OUTPUT.lock().map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                format!("Failed to lock TAPE_OUTPUT: {}", e),
+            )
+        })?;
 
     let mut existing_dir: bool;
     set_newdir_umask(unsafe { umask(0) });

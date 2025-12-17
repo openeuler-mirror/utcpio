@@ -1,13 +1,6 @@
-/*
- * SPDX-FileCopyrightText: 2025 UnionTech Software Technology Co., Ltd.
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
-
- // SPDX-FileCopyrightText: 2025 UnionTech Software Technology Co., Ltd.
+// SPDX-FileCopyrightText: 2025 UnionTech Software Technology Co., Ltd.
 //
 // # SPDX-License-Identifier: GPL-3.0-or-later
-
 
 #![allow(
     clippy::redundant_closure,
@@ -900,11 +893,18 @@ pub fn process_copy_out() -> io::Result<()> {
     file_hdr.c_magic = 0o70707;
 
     let mut input_tape: std::sync::MutexGuard<'_, TapeInput> = TAPE_INPUT.lock().map_err(|e| {
-        io::Error::new(io::ErrorKind::Other, format!("Failed to lock TAPE_INPUT: {}", e))
+        io::Error::new(
+            io::ErrorKind::Other,
+            format!("Failed to lock TAPE_INPUT: {}", e),
+        )
     })?;
-    let mut output_tape: std::sync::MutexGuard<'_, TapeOutput> = TAPE_OUTPUT.lock().map_err(|e| {
-        io::Error::new(io::ErrorKind::Other, format!("Failed to lock TAPE_OUTPUT: {}", e))
-    })?;
+    let mut output_tape: std::sync::MutexGuard<'_, TapeOutput> =
+        TAPE_OUTPUT.lock().map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                format!("Failed to lock TAPE_OUTPUT: {}", e),
+            )
+        })?;
 
     if isrmt(&mut out_file_des) {
         output_tape.output_is_special = true;
