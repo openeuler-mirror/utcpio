@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: 2025 UnionTech Software Technology Co., Ltd.
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
+// SPDX-FileCopyrightText: 2025 UnionTech Software Technology Co., Ltd.
+//
+// # SPDX-License-Identifier: GPL-3.0-or-later
 
 #![allow(clippy::type_complexity, clippy::derivable_impls)]
 
@@ -200,7 +198,6 @@ pub struct ArgpState<'a> {
     pub out_stream: Option<&'a mut dyn Write>, // For information; initialized to stdout.
     pub pstate: Option<Vec<u8>>,               // Private, for use by argp.
 }
-
 impl<'a> Default for ArgpState<'a> {
     fn default() -> Self {
         ArgpState {

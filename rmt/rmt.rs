@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: 2025 UnionTech Software Technology Co., Ltd.
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
+// SPDX-FileCopyrightText: 2025 UnionTech Software Technology Co., Ltd.
+//
+// # SPDX-License-Identifier: GPL-3.0-or-later
 
 use nix::errno::Errno::*;
 use std::fs::File;
@@ -121,15 +119,15 @@ macro_rules! DEBUG2 {
 }
 
 macro_rules! VDEBUG {
-     ($lev:expr, $pfx:expr, $($arg:tt)*) => {{
-             if let Some(ref mut f) = *DBGOUT.lock().unwrap() {
-                 if $lev <= *DBGLEV.lock().unwrap() {
-                     //writeln!(f, "{}{}", $pfx, format_args!($($arg)*)).unwrap();
-                     writeln!(f, "{}{}", $pfx, format!($($arg)*));
-                 }
-             }
-     }};
- }
+    ($lev:expr, $pfx:expr, $($arg:tt)*) => {{
+            if let Some(ref mut f) = *DBGOUT.lock().unwrap() {
+                if $lev <= *DBGLEV.lock().unwrap() {
+                    //writeln!(f, "{}{}", $pfx, format_args!($($arg)*)).unwrap();
+                    writeln!(f, "{}{}", $pfx, format!($($arg)*));
+                }
+            }
+    }};
+}
 
 fn trimnl(s: &mut String) {
     if s.ends_with('\n') {

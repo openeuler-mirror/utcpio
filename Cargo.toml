@@ -4,7 +4,7 @@ resolver = "2"
 
 [package]
 name = "utcpio"
-version = "0.1.0"
+version = "1.0.0"
 authors = ["zhanghaidong  <zhanghaidong@uniontech.com>"]
 description = "A simple cpio implementation"
 edition = "2021"
@@ -17,11 +17,10 @@ nix = "0.29"
 gnu = { path = "./gnu" }
 pax = { path = "./pax" }
 clap = { version = "4.5", features = ["derive"] }
-lazy_static = "1.5.0"
-users = "0.11.0"
-chrono = "0.4.40"
+lazy_static = "1.5"
+users = "0.11"
+chrono = "0.4"
 
 [[bin]]
 name = "utcpio"
 path = "src/main.rs"
-

@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: 2025 UnionTech Software Technology Co., Ltd.
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
+// SPDX-FileCopyrightText: 2025 UnionTech Software Technology Co., Ltd.
+//
+// # SPDX-License-Identifier: GPL-3.0-or-later
 
 #![allow(
     clippy::match_like_matches_macro,
@@ -59,7 +57,7 @@ use pax::paxnames::*;
 use pax::rmt::*;
 
 use crate::appargs::*;
-// use crate::copyin::*;
+use crate::copyin::*;
 use crate::cpiohdr::*;
 use crate::externs::*;
 use crate::filetype::*;
@@ -71,7 +69,6 @@ use crate::util::libc::uid_t;
 use gnu::dirname::*;
 use gnu::error::*;
 use gnu::util::validate_and_sanitize_path;
-use crate::copyin::process_copy_in;
 
 use lazy_static::lazy_static;
 use std::sync::Mutex;
@@ -241,8 +238,6 @@ fn swahw_array(ptr: &mut [u8], count: usize) {
         }
     }
 }
-
-
 fn tape_fill_input_buffer(input_tape: &mut MutexGuard<TapeInput>, in_des: &File, num_bytes: i32) {
     input_tape.in_buff = 0;
     let num_bytes = num_bytes.min(get_io_block_size());
@@ -381,10 +376,16 @@ pub fn tape_buffered_peek(
                     in_des,
                     &mut input_tape.input_buffer[append_buf..],
                     block_size,
-                ).try_into() {
+                )
+                .try_into()
+                {
                     Ok(size) => size,
                     Err(_) => {
-                        error(PAXEXIT_FAILURE, 0, format_args!("Read size conversion error"));
+                        error(
+                            PAXEXIT_FAILURE,
+                            0,
+                            format_args!("Read size conversion error"),
+                        );
                         return -1;
                     }
                 }
@@ -474,7 +475,6 @@ pub fn write_nuls_to_file(
         writer(tape_output, &mut zeros_512.to_vec(), out_file, extra_bytes);
     }
 }
-
 pub fn copy_files_tape_to_disk(
     input_tape: &mut MutexGuard<TapeInput>,
     output_tape: &mut MutexGuard<TapeOutput>,
@@ -738,6 +738,7 @@ pub fn copy_files_disk_to_disk(
         input_tape.in_buff += size;
     }
 }
+
 pub fn warn_if_file_changed(file_name: &str, old_file_size: u64, old_file_mtime: u64) {
     let path = Path::new(file_name);
     match fs::metadata(path) {
@@ -918,7 +919,10 @@ pub fn open_archive(file: &str) -> io::Result<File> {
     let copy_func_guard = match COPY_FUNCTION.lock() {
         Ok(guard) => guard,
         Err(_) => {
-            return Err(io::Error::new(io::ErrorKind::Other, "Failed to lock COPY_FUNCTION"));
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Failed to lock COPY_FUNCTION",
+            ));
         }
     };
 
@@ -1246,7 +1250,11 @@ pub fn stat_to_cpio(st: &mut Metadata, hdr: &mut CpioFileStat) {
 
     hdr.c_mtime = st
         .modified()
-        .map(|t| t.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_secs() as i64)
+        .map(|t| {
+            t.duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs() as i64
+        })
         .unwrap_or(0);
     hdr.c_filesize = st.len() as i64;
     hdr.c_chksum = 0;
@@ -1316,20 +1324,24 @@ pub fn fchown_or_chown(
         }
     } else {
         match name.to_str() {
-            Some(name_str) => {
-                match std::ffi::CString::new(name_str) {
-                    Ok(name_cstr) => {
-                        let result = unsafe { chown(name_cstr.as_ptr(), uid, gid) };
-                        if result == 0 {
-                            Ok(())
-                        } else {
-                            Err(std::io::Error::last_os_error())
-                        }
+            Some(name_str) => match std::ffi::CString::new(name_str) {
+                Ok(name_cstr) => {
+                    let result = unsafe { chown(name_cstr.as_ptr(), uid, gid) };
+                    if result == 0 {
+                        Ok(())
+                    } else {
+                        Err(std::io::Error::last_os_error())
                     }
-                    Err(_) => Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid path string")),
                 }
-            }
-            None => Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid path encoding")),
+                Err(_) => Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "Invalid path string",
+                )),
+            },
+            None => Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Invalid path encoding",
+            )),
         }
     }
 }
@@ -1345,27 +1357,31 @@ pub fn fchmod_or_chmod(file: Option<&File>, name: &Path, mode: mode_t) -> std::i
         }
     } else {
         match name.to_str() {
-            Some(name_str) => {
-                match std::ffi::CString::new(name_str) {
-                    Ok(name_cstr) => {
-                        let result = unsafe { libc::chmod(name_cstr.as_ptr(), mode) };
-                        if result == 0 {
-                            Ok(())
-                        } else {
-                            Err(std::io::Error::last_os_error())
-                        }
+            Some(name_str) => match std::ffi::CString::new(name_str) {
+                Ok(name_cstr) => {
+                    let result = unsafe { libc::chmod(name_cstr.as_ptr(), mode) };
+                    if result == 0 {
+                        Ok(())
+                    } else {
+                        Err(std::io::Error::last_os_error())
                     }
-                    Err(_) => Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid path string")),
                 }
-            }
-            None => Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid path encoding")),
+                Err(_) => Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "Invalid path string",
+                )),
+            },
+            None => Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Invalid path encoding",
+            )),
         }
     }
 }
 
 pub fn set_perms(file: Option<&File>, header: &mut CpioFileStat) {
     let c_name = header.get_c_name();
-    
+
     // 验证和清理路径
     let safe_path = match validate_and_sanitize_path(&c_name) {
         Ok(path) => path,
@@ -1375,7 +1391,7 @@ pub fn set_perms(file: Option<&File>, header: &mut CpioFileStat) {
             return;
         }
     };
-    
+
     if !get_no_chown_flag() {
         let uid = cpio_uid(header.c_uid);
         let gid = cpio_gid(header.c_gid);
@@ -1509,7 +1525,7 @@ pub fn repair_inter_delayed_set_stat(dir_stat_info: &mut Metadata) -> i32 {
                 continue;
             }
         };
-        
+
         match fs::metadata(&safe_path) {
             Ok(st) => {
                 if st.dev() == dir_stat_info.dev() && st.ino() == dir_stat_info.ino() {
@@ -1583,7 +1599,10 @@ pub fn make_path(argpath: &str, owner: i32, group: i32, verbose_fmt_string: Opti
             error(
                 0,
                 0,
-                format_args!("cannot make directory `{}`: invalid or unsafe path", argpath),
+                format_args!(
+                    "cannot make directory `{}`: invalid or unsafe path",
+                    argpath
+                ),
             );
             return 1;
         }
@@ -1735,14 +1754,10 @@ pub fn make_path(argpath: &str, owner: i32, group: i32, verbose_fmt_string: Opti
 // 0
 //}
 
-
-
-
-
 pub fn cpio_mkdir(file_hdr: &mut CpioFileStat, setstat_delayed: &mut bool) -> std::io::Result<()> {
     let mode = file_hdr.c_mode;
     let c_name = file_hdr.get_c_name();
-    
+
     // 验证和清理路径
     let safe_path = validate_and_sanitize_path(&c_name)?;
 
@@ -1858,4 +1873,3 @@ pub fn arf_stores_inode_p(arf: ArchiveFormat) -> bool {
         _ => true,
     }
 }
-

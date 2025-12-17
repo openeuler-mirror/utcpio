@@ -1,40 +1,55 @@
 # utcpio
 
-#### 介绍
-utcpio is a refactoring of cpio.
+简体中文(./README.zh_CN.md)
 
-#### 软件架构
-软件架构说明
+utcpio 是一个基础命令行的项目，该项目使用 Rust 语言重写 Linux 下的基础命令，支持服务器场景以及桌面场景。并借助 Rust 的安全能力，提供更为安全的操作系统基础命令。
 
+## 环境要求
 
-#### 安装教程
+Rust (`cargo`, `rustc`) >= 1.82.0
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+## 构建方法
 
-#### 使用说明
+我们使用 Cargo 来构建 utcpio 二进制文件。
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+我们首先需要拉取仓库：
 
-#### 参与贡献
+```shell
+https://gerrit-dev.uniontech.com/admin/repos/V25/utcpio
+cd utcpio
+```
 
-1.  Fork 本仓库
-2.  新建 Feat_xxx 分支
-3.  提交代码
-4.  新建 Pull Request
+然后我们可以使用 Cargo 构建 utcpio，该流程与其他 Rust 程序相同：
 
+```shell
+cargo build --release
+```
 
-#### 特技
+此命令将 utcpio 构建为名为 “utcpio” 的二进制文件。
 
-1.  使用 Readme\_XXX.md 来支持不同的语言，例如 Readme\_en.md, Readme\_zh.md
-2.  Gitee 官方博客 [blog.gitee.com](https://blog.gitee.com)
-3.  你可以 [https://gitee.com/explore](https://gitee.com/explore) 这个地址来了解 Gitee 上的优秀开源项目
-4.  [GVP](https://gitee.com/gvp) 全称是 Gitee 最有价值开源项目，是综合评定出的优秀开源项目
-5.  Gitee 官方提供的使用手册 [https://gitee.com/help](https://gitee.com/help)
-6.  Gitee 封面人物是一档用来展示 Gitee 会员风采的栏目 [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)
+## 安装方法
 
-## 开源许可证
-utcpio 在 [GPL-2.0-or-later](LICENSE)下发布。
+使用 Cargo 安装 utcpio
+
+```shell
+cargo install --path . --locked
+```
+
+此命令将 utcpio 安装到 Cargo 的 _bin_ 文件夹中（例如 `$HOME/.cargo/bin`）。之后，可以通过 `$HOME/.cargo/bin/utcpio [util] [util options]` 使用 utcpio。
+
+## 卸载方法
+
+使用 Cargo 卸载 utcpio：
+
+```shell
+cargo uninstall 
+```
+
+## 参与贡献
+
+参与 ut 贡献，请参阅 [CONTRIBUTING](CONTRIBUTING.md) 文件。
+
+## LICENSE
+
+utcpio 使用 GPL-3.0-or-later 许可证，详细信息请参阅 [LICENSE](LICENSE) 文件。
+

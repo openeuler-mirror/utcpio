@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: 2025 UnionTech Software Technology Co., Ltd.
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
+// SPDX-FileCopyrightText: 2025 UnionTech Software Technology Co., Ltd.
+//
+// # SPDX-License-Identifier: GPL-3.0-or-later
 
 pub fn dir_len(file: &str) -> usize {
     let mut prefix_length: usize = 0;
@@ -53,4 +51,65 @@ pub fn mdir_name(file: &str) -> String {
     }
     // dir.push('\0');  rust 不需要处理的空. push 会自动处理
     dir
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_dir_len() {
+        // Edge cases
+        assert_eq!(dir_len(""), 0);
+        assert_eq!(dir_len("."), 0);
+        assert_eq!(dir_len(".."), 0);
+
+        // Root directory cases
+        assert_eq!(dir_len("/"), 1);
+        assert_eq!(dir_len("//"), 2);
+        assert_eq!(dir_len("///"), 2);
+
+        // Simple paths
+        assert_eq!(dir_len("/a"), 1);
+        assert_eq!(dir_len("a/"), 1);
+        assert_eq!(dir_len("a/b"), 2);
+        assert_eq!(dir_len("a//b"), 3);
+
+        // Complex paths
+        assert_eq!(dir_len("/usr/bin"), 4);
+        assert_eq!(dir_len("/usr/bin/"), 4);
+        assert_eq!(dir_len("/usr//bin/"), 5);
+        assert_eq!(dir_len("/usr/local/bin"), 9);
+        assert_eq!(dir_len("./usr/bin"), 5);
+        assert_eq!(dir_len("../usr/bin"), 6);
+        assert_eq!(dir_len("home/user/docs/"), 9);
+    }
+
+    #[test]
+    fn test_mdir_name() {
+        // Edge cases
+        assert_eq!(mdir_name(""), ".\0");
+        assert_eq!(mdir_name("."), ".\0");
+        assert_eq!(mdir_name(".."), ".\0");
+
+        // Root directory cases
+        assert_eq!(mdir_name("/"), "/\0");
+        assert_eq!(mdir_name("//"), "//\0");
+        assert_eq!(mdir_name("///"), "//\0");
+
+        // Simple paths
+        assert_eq!(mdir_name("/a"), "/\0");
+        assert_eq!(mdir_name("a/"), ".\0");
+        assert_eq!(mdir_name("a/b"), "a\0");
+        assert_eq!(mdir_name("a//b"), "a/\0");
+
+        // Complex paths
+        assert_eq!(mdir_name("/usr/bin"), "/usr\0");
+        assert_eq!(mdir_name("/usr/bin/"), "/usr\0");
+        assert_eq!(mdir_name("/usr//bin/"), "/usr/\0");
+        assert_eq!(mdir_name("/usr/local/bin"), "/usr/local\0");
+        assert_eq!(mdir_name("./usr/bin"), "./usr\0");
+        assert_eq!(mdir_name("../usr/bin"), "../usr\0");
+        assert_eq!(mdir_name("home/user/docs/"), "home/user\0");
+    }
 }

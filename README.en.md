@@ -1,39 +1,61 @@
 # utcpio
 
-#### Description
-utcpio is a refactoring of cpio.
+English (./README.md)
 
-#### Software Architecture
-Software architecture description
+utcpio is a fundamental command-line project that rewrites core Linux commands in the Rust programming language. It is designed for both server and desktop environments and leverages Rust's safety features to provide more secure fundamental operating system commands.
 
-#### Installation
+-----
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+## Environment Requirements
 
-#### Instructions
+Rust (`cargo`, `rustc`) \>= 1.82.0
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+-----
 
-#### Contribution
+## How to Build
 
-1.  Fork the repository
-2.  Create Feat_xxx branch
-3.  Commit your code
-4.  Create Pull Request
+We use Cargo to build the utcpio binary.
+
+First, you need to clone the repository:
+
+```shell
+https://gerrit-dev.uniontech.com/admin/repos/V25/utcpio
+cd utcpio
+```
+
+Then, you can use Cargo to build utcpio, which is the same process as with any other Rust program:
+
+```shell
+cargo build --release
+```
+
+This command builds utcpio into a binary file named "utcpio."
+
+-----
+
+## How to Install
+
+Use Cargo to install utcpio:
+
+```shell
+cargo install --path . --locked
+```
+
+This command installs utcpio to Cargo's **bin** folder (e.g., `$HOME/.cargo/bin`). After installation, you can use utcpio with `$HOME/.cargo/bin/utcpio [util] [util options]`.
+
+-----
+
+## How to Uninstall
+
+Use Cargo to uninstall utcpio:
+
+```shell
+cargo uninstall
+```
 
 
-#### Gitee Feature
+-----
 
-1.  You can use Readme\_XXX.md to support different languages, such as Readme\_en.md, Readme\_zh.md
-2.  Gitee blog [blog.gitee.com](https://blog.gitee.com)
-3.  Explore open source project [https://gitee.com/explore](https://gitee.com/explore)
-4.  The most valuable open source project [GVP](https://gitee.com/gvp)
-5.  The manual of Gitee [https://gitee.com/help](https://gitee.com/help)
-6.  The most popular members  [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)
+## LICENSE
 
-## License
-utcpio is licensed under [GPL-2.0-or-later](LICENSE)
+utcpio is licensed under the GPL-3.0-or-later license. For more details, please see the [LICENSE](https://www.google.com/search?q=LICENSE) file.

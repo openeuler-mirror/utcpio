@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2025 UnionTech Software Technology Co., Ltd.
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
-
 `utcpio`（复制进/出）是一个用于创建和提取归档文件的命令行工具。
 
 以下是 `utcpio` 的主要用法：
