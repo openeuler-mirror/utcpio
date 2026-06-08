@@ -92,12 +92,12 @@ fn tape_pad_output(output_tape: &mut MutexGuard<TapeOutput>, out_file_des: &mut 
     }
 }
 
-pub fn count_defered_links_to_dev_ino(file_hdr: &CpioFileStat) -> usize {
+fn count_defered_links_to_dev_ino(file_hdr: &CpioFileStat) -> usize {
     let global_deferments = GLOBAL_DEFERMENTS.lock().unwrap();
     count_defered_links_to_dev_ino_with_lock(file_hdr, &global_deferments)
 }
 
-pub fn count_defered_links_to_dev_ino_with_lock(
+fn count_defered_links_to_dev_ino_with_lock(
     file_hdr: &CpioFileStat,
     global_deferments: &std::sync::MutexGuard<Vec<Deferment>>,
 ) -> usize {
@@ -118,14 +118,14 @@ pub fn count_defered_links_to_dev_ino_with_lock(
 fn last_link(file_hdr: &CpioFileStat) -> bool {
     file_hdr.c_nlink == count_defered_links_to_dev_ino(file_hdr) + 1
 }
-pub fn add_link_defer(file_hdr: &CpioFileStat) {
+fn add_link_defer(file_hdr: &CpioFileStat) {
     let mut global_deferments = GLOBAL_DEFERMENTS.lock().unwrap();
     let deferment = Deferment::new(file_hdr);
 
     global_deferments.insert(0, deferment);
 }
 
-pub fn writeout_other_defers(
+fn writeout_other_defers(
     output_tape: &mut MutexGuard<TapeOutput>,
     file_hdr: &CpioFileStat,
     out_des: &mut File,
@@ -166,7 +166,7 @@ pub fn writeout_other_defers(
     }
 }
 
-pub fn writeout_defered_file(
+fn writeout_defered_file(
     output_tape: &mut MutexGuard<TapeOutput>,
     input_tape: &mut MutexGuard<TapeInput>,
     header: &mut CpioFileStat,
@@ -229,7 +229,7 @@ pub fn writeout_defered_file(
     }
 }
 
-pub fn writeout_final_defers(
+fn writeout_final_defers(
     output_tape: &mut MutexGuard<TapeOutput>,
     input_tape: &mut MutexGuard<TapeInput>,
     out_des: &mut File,
@@ -250,23 +250,6 @@ pub fn writeout_final_defers(
             write_out_header(output_tape, &mut file_hdr, out_des);
         }
     }
-}
-
-pub fn to_ascii(where_: &mut [u8], v: u64, digits: usize, logbase: u32, nul: bool) -> bool {
-    let codetab = b"0123456789ABCDEF";
-    let mut v = v;
-    let mut digits = digits;
-
-    if nul {
-        where_[digits - 1] = 0;
-        digits -= 1;
-    }
-    while digits > 0 {
-        where_[digits - 1] = codetab[(v & ((1 << logbase) - 1)) as usize];
-        v >>= logbase;
-        digits -= 1;
-    }
-    v != 0
 }
 
 fn field_width_error(filename: &str, fieldname: &str, value: u64, width: usize, nul: bool) {
@@ -583,7 +566,7 @@ fn hp_compute_dev(file_hdr: &mut CpioFileStat, pdev: &mut dev_t, prdev: &mut dev
     }
 }
 
-pub fn write_out_binary_header(
+fn write_out_binary_header(
     output_tape: &mut MutexGuard<TapeOutput>,
     rdev: dev_t,
     file_hdr: &mut CpioFileStat,
@@ -735,13 +718,13 @@ fn write_out_header(
     }
 }
 
-pub fn assign_string(pvar: &mut String, value: &str) {
+fn assign_string(pvar: &mut String, value: &str) {
     pvar.clear();
     let trimmed_name = value.trim_end_matches('\0');
     pvar.push_str(trimmed_name);
 }
 
-pub fn write_xattrs(metadata_fd: RawFd, path: &str) -> i32 {
+fn write_xattrs(metadata_fd: RawFd, path: &str) -> i32 {
     if metadata_fd < 0 {
         return 0;
     }
