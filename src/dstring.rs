@@ -29,18 +29,6 @@ pub const DYNAMIC_STRING_INITIALIZER: DynamicString = DynamicString {
     ds_string: Vec::new(),
 };
 
-// pub fn ds_init(string: &mut DynamicString) {
-//     string.ds_size = 0;
-//     string.ds_idx = 0;
-//     string.ds_string = Vec::new();
-// }
-
-// pub fn ds_free(string: &mut DynamicString) {
-//     string.ds_string.clear();
-//     string.ds_size = 0;
-//     string.ds_idx = 0;
-// }
-
 fn ds_resize(string: &mut DynamicString, len: usize) {
     let needed_size = len + string.ds_idx;
     while needed_size >= string.ds_size {
