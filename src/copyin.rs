@@ -34,7 +34,6 @@ use pax::paxlib::PAXEXIT_FAILURE;
 use pax::rmt::*;
 
 use crate::appargs::*;
-use crate::copypass::*;
 use crate::cpiohdr::*;
 use crate::dstring::*;
 use crate::externs::*;
@@ -85,71 +84,11 @@ impl DelayedLink {
     fn is_empty(&self) -> bool {
         self.table.is_empty()
     }
-    // fn dl_hash(&self, entry: &DelayedLinkKey, table_size: usize) -> usize {
-    //     let n = entry.dev;
-    //     let nshift = (mem::size_of::<u64>() - mem::size_of::<u64>()) * 8; // CHAR_BIT is 8
-    //     let shifted_n = if nshift > 0 { n << nshift } else { n };
-    //     (shifted_n ^ entry.ino) as usize % table_size
-    // }
-
-    // fn dl_compare(&self, a: &DelayedLinkKey, b: &DelayedLinkKey) -> bool {
-    //     a.dev == b.dev && a.ino == b.ino
-    // }
-    // fn get_first(&self) -> Option<(&DelayedLinkKey, &DelayedLinkValue)> {
-    //     self.table.iter().next()
-    // }
-
-    // fn get_next<'a>(
-    //     &'a self,
-    //     current_key: &'a DelayedLinkKey,
-    // ) -> Option<(&'a DelayedLinkKey, &'a DelayedLinkValue)> {
-    //     let mut iter = self.table.iter();
-    //     while let Some((key, _)) = iter.next() {
-    //         if key == current_key {
-    //             return iter.next();
-    //         }
-    //     }
-    //     None
-    // }
 
     fn insert(&mut self, key: DelayedLinkKey, value: DelayedLinkValue) {
         self.table.insert(key, value);
     }
-
-    // fn get(&self, key: &DelayedLinkKey) -> Option<&DelayedLinkValue> {
-    //     self.table.get(key)
-    // }
-
-    // fn remove(&mut self, key: &DelayedLinkKey) -> Option<DelayedLinkValue> {
-    //     self.table.remove(key)
-    // }
 }
-
-// fn test_read() {
-//     let mut stdin = io::stdin();
-//     let mut buffer = [0u8; 8192]; // 8KB 缓冲区
-
-//     loop {
-//         match stdin.read(&mut buffer[..512]) {
-//             Ok(0) => {
-//                 // EOF，读取完成
-//                 break;
-//             }
-//             Ok(read_bytes) => {
-//                 // 处理读取的数据
-//                 println!("Read {} bytes", read_bytes);
-//                 // 在这里添加你的数据处理逻辑
-//                 // 例如，你可以将数据写入另一个文件，或者进行其他操作
-//                 //println!("Read data: {:?}", &buffer[..read_bytes]);
-//             }
-//             Err(e) => {
-//                 // 读取错误
-//                 eprintln!("Error reading from stdin: {}", e);
-//                 break;
-//             }
-//         }
-//     }
-// }
 
 lazy_static! {
     static ref NEW_NAME: Mutex<Option<DynamicString>> = Mutex::new(None);
@@ -160,20 +99,7 @@ lazy_static! {
 
 //只在当前文件使用
 
-pub fn warn_junk_bytes(bytes_skipped: u64) {
-    // 只有当跳过的字节数超过一定阈值时才显示警告
-    const WARN_THRESHOLD: u64 = 100; // 跳过超过100字节才显示警告
-
-    if bytes_skipped > WARN_THRESHOLD {
-        error(
-            0,
-            0,
-            format_args!("warning: skipped {} bytes of junk", bytes_skipped),
-        );
-    }
-}
-
-pub fn query_rename(
+fn query_rename(
     file_hdr: &mut CpioFileStat,
     tty_in: &mut File,
     tty_out: &mut File,
@@ -209,11 +135,7 @@ pub fn query_rename(
     }
 }
 
-pub fn tape_skip_padding(
-    input_tape: &mut MutexGuard<TapeInput>,
-    in_file_des: &mut File,
-    offset: u64,
-) {
+fn tape_skip_padding(input_tape: &mut MutexGuard<TapeInput>, in_file_des: &mut File, offset: u64) {
     let pad: u64 = match get_archive_format() {
         ArchiveFormat::Crcascii | ArchiveFormat::Newascii => (4 - (offset % 4)) % 4,
         ArchiveFormat::Binary | ArchiveFormat::Hpbinary => (2 - (offset % 2)) % 2,
@@ -226,7 +148,7 @@ pub fn tape_skip_padding(
     }
 }
 
-pub fn get_link_name(
+fn get_link_name(
     input_tape: &mut MutexGuard<TapeInput>,
     file_hdr: &mut CpioFileStat,
     in_file_des: &mut File,
@@ -359,7 +281,7 @@ fn defer_copyin(file_hdr: &CpioFileStat) {
     copyin_deferments.insert(0, deferment);
 }
 
-pub fn create_defered_links(file_hdr: &mut CpioFileStat) {
+fn create_defered_links(file_hdr: &mut CpioFileStat) {
     let mut deferments_guard = COPYIN_DEFERMENTS.lock().unwrap();
     let mut i = 0;
     let mut prev_i: Option<usize> = None;
@@ -403,7 +325,7 @@ pub fn create_defered_links(file_hdr: &mut CpioFileStat) {
     }
 }
 
-pub fn create_defered_links_to_skipped(
+fn create_defered_links_to_skipped(
     output_tape: &mut MutexGuard<TapeOutput>,
     input_tape: &mut MutexGuard<TapeInput>,
     file_hdr: &mut CpioFileStat,
@@ -449,7 +371,7 @@ pub fn create_defered_links_to_skipped(
     -1
 }
 
-pub fn create_final_defers() {
+fn create_final_defers() {
     let mut deferments_guard = COPYIN_DEFERMENTS.lock().unwrap();
 
     for d in deferments_guard.iter_mut() {
@@ -499,7 +421,7 @@ pub fn create_final_defers() {
     }
 }
 
-pub fn copyin_regular_file(
+fn copyin_regular_file(
     output_tape: &mut MutexGuard<TapeOutput>,
     input_tape: &mut MutexGuard<TapeInput>,
     file_hdr: &mut CpioFileStat,
@@ -692,7 +614,7 @@ pub fn copyin_regular_file(
     }
 }
 
-pub fn copyin_device(file_hdr: &mut CpioFileStat) {
+fn copyin_device(file_hdr: &mut CpioFileStat) {
     let to_stdout_option = get_to_stdout_option();
     let archive_format = get_archive_format();
     let create_dir_flag = get_create_dir_flag();
@@ -820,7 +742,7 @@ pub fn copyin_device(file_hdr: &mut CpioFileStat) {
     }
 }
 
-pub fn symlink_placeholder(oldpath: &str, newpath: &str, file_stat: &CpioFileStat) -> i32 {
+fn symlink_placeholder(oldpath: &str, newpath: &str, file_stat: &CpioFileStat) -> i32 {
     let fd = OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -1201,55 +1123,6 @@ fn read_pattern_file() {
     set_num_patterns(new_num_patterns as i32);
 }
 
-pub fn from_octal(where_: &Vec<u8>) -> u64 {
-    from_ascii(where_, where_.len(), LG_8)
-}
-pub fn from_hex(where_: &Vec<u8>) -> u64 {
-    from_ascii(where_, where_.len(), LG_16)
-}
-
-fn from_ascii(where_: &Vec<u8>, digs: usize, logbase: u32) -> u64 {
-    let mut value: u64 = 0;
-    let buf = where_.as_slice();
-    // let end = buf.len();
-    let mut overflow = false;
-    let codetab = b"0123456789ABCDEF";
-
-    let mut buf_iter = buf.iter().take(digs).skip_while(|&&c| c == b' ');
-
-    if buf_iter.clone().count() == 0 || buf_iter.clone().next() == Some(&0) {
-        return 0;
-    }
-
-    while let Some(&c) = buf_iter.next() {
-        let p = codetab.iter().position(|&x| x == c.to_ascii_uppercase());
-        if let Some(d) = p {
-            if (d >> logbase) > 1 {
-                error(0, 0, format_args!("Malformed number {} {:?}", digs, where_));
-                break;
-            }
-            value += d as u64;
-            if buf_iter.clone().count() == 0 || buf_iter.clone().next() == Some(&0) {
-                break;
-            }
-            overflow |= (value ^ (value << logbase >> logbase)) != 0;
-            value <<= logbase;
-        } else {
-            error(0, 0, format_args!("Malformed number {} {:?}", digs, where_));
-            break;
-        }
-    }
-
-    if overflow {
-        error(
-            0,
-            0,
-            format_args!("Archive value {} {:?} is out of range", digs, where_),
-        );
-    }
-    value
-}
-
 fn swab_short(i: u16) -> u16 {
     ((i << 8) & 0xff00) | ((i >> 8) & 0x00ff)
 }
@@ -1266,7 +1139,7 @@ enum TmpBuf {
     Us(u16),
 }
 
-pub fn read_in_header(
+fn read_in_header(
     input_tape: &mut MutexGuard<TapeInput>,
     file_hdr: &mut CpioFileStat,
     in_des: &mut File,
