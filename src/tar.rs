@@ -12,13 +12,13 @@ use gnu::error::*;
 use crate::idcache::*;
 
 use crate::appargs::*;
-use crate::copyin::{from_octal, warn_junk_bytes};
-use crate::copyout::to_ascii;
 use crate::cpiohdr::*;
 use crate::externs::*;
 use crate::filetype::*;
 use crate::global::*;
-use crate::util::{cpio_set_c_name, tape_buffered_read, tape_buffered_write};
+use crate::util::{
+    cpio_set_c_name, from_octal, tape_buffered_read, tape_buffered_write, to_ascii, warn_junk_bytes,
+};
 
 pub const TMAGIC: &[u8] = b"ustar";
 pub const TMAGLEN: usize = 6;
