@@ -169,24 +169,23 @@ pub fn rmtread(file: &File, buffer: &mut [u8], length: usize) -> usize {
     let fd: i32 = file.as_raw_fd();
     if isrmt(file) {
         rmt_read__((fd - REM_BIAS) as usize, buffer, length)
+    } else if fd == libc::STDIN_FILENO {
+        let mut stdin = io::stdin();
+        match stdin.read(&mut buffer[..length]) {
+            Ok(read_bytes) => read_bytes,
+            Err(e) => {
+                eprintln!("Error reading from stdin: {:?}", e);
+                0
+            }
+        }
     } else {
-        match fd {
-            0 => {
-                //   test_read();
-                let mut stdin = io::stdin();
-                match stdin.read(&mut buffer[..length]) {
-                    Ok(read_bytes) => read_bytes,
-
-                    Err(e) => {
-                        eprintln!("Error reading from stdin: {:?}", e);
-                        0 // 或者返回适当的错误处理
-                    }
-                }
+        let mut file_ref = file;
+        match (&mut file_ref).read(&mut buffer[..length]) {
+            Ok(read_bytes) => read_bytes,
+            Err(e) => {
+                eprintln!("Error reading from file descriptor {}: {:?}", fd, e);
+                0
             }
-            1 => {
-                0 // 或者返回适当的错误处理
-            }
-            _ => 0,
         }
     }
 }
