@@ -1,0 +1,10 @@
+[source.crates-io]
+replace-with = 'tuna'
+
+[source.tuna]
+registry = "sparse+https://mirrors.tuna.tsinghua.edu.cn/crates.io-index/"
+
+
+[http]
+check-revoke = false
+timeout = 300
