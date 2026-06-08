@@ -918,7 +918,7 @@ fn process_args() {
         //CHECK_USAGE!(unsafe { get_xstat() != lstat }, "--dereference", "--extract");
         // CHECK_USAGE!(false, "--dereference", "--extract");
         CHECK_USAGE!(get_append_flag(), "--append", "--extract");
-        CHECK_USAGE!(get_input_archive_name().is_some(), "-O", "--extract"); // 修改
+        CHECK_USAGE!(get_output_archive_name().is_some(), "-O", "--extract");
         CHECK_USAGE!(
             get_renumber_inodes_option(),
             "--renumber-inodes",
