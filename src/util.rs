@@ -36,7 +36,7 @@ use gnu::fdutimensat::*;
 use gnu::quotearg::*;
 use gnu::safe_read::SAFE_READ_ERROR;
 use gnu::stripslash::*;
-use gnu::xmalloc::*;
+//use gnu::xmalloc::*;
 
 use nix::libc;
 use nix::libc::chown;
@@ -104,6 +104,125 @@ lazy_static! {
     static ref COPY_FUNCTION: Mutex<Option<fn() -> io::Result<()>>> = Mutex::new(None);
     static ref APPEND_FLAG: Mutex<bool> = Mutex::new(false);
     static ref RSH_COMMAND_OPTION: Mutex<Option<String>> = Mutex::new(None);
+}
+
+pub fn warn_junk_bytes(bytes_skipped: u64) {
+    // 只有当跳过的字节数超过一定阈值时才显示警告
+    const WARN_THRESHOLD: u64 = 100; // 跳过超过100字节才显示警告
+
+    if bytes_skipped > WARN_THRESHOLD {
+        error(
+            0,
+            0,
+            format_args!("warning: skipped {} bytes of junk", bytes_skipped),
+        );
+    }
+}
+
+pub fn from_octal(where_: &Vec<u8>) -> u64 {
+    from_ascii(where_, where_.len(), LG_8)
+}
+pub fn from_hex(where_: &Vec<u8>) -> u64 {
+    from_ascii(where_, where_.len(), LG_16)
+}
+
+fn from_ascii(where_: &Vec<u8>, digs: usize, logbase: u32) -> u64 {
+    let mut value: u64 = 0;
+    let buf = where_.as_slice();
+    // let end = buf.len();
+    let mut overflow = false;
+    let codetab = b"0123456789ABCDEF";
+
+    let mut buf_iter = buf.iter().take(digs).skip_while(|&&c| c == b' ');
+
+    if buf_iter.clone().count() == 0 || buf_iter.clone().next() == Some(&0) {
+        return 0;
+    }
+
+    while let Some(&c) = buf_iter.next() {
+        let p = codetab.iter().position(|&x| x == c.to_ascii_uppercase());
+        if let Some(d) = p {
+            if (d >> logbase) > 1 {
+                error(0, 0, format_args!("Malformed number {} {:?}", digs, where_));
+                break;
+            }
+            value += d as u64;
+            if buf_iter.clone().count() == 0 || buf_iter.clone().next() == Some(&0) {
+                break;
+            }
+            overflow |= (value ^ (value << logbase >> logbase)) != 0;
+            value <<= logbase;
+        } else {
+            error(0, 0, format_args!("Malformed number {} {:?}", digs, where_));
+            break;
+        }
+    }
+
+    if overflow {
+        error(
+            0,
+            0,
+            format_args!("Archive value {} {:?} is out of range", digs, where_),
+        );
+    }
+    value
+}
+
+pub fn to_ascii(where_: &mut [u8], v: u64, digits: usize, logbase: u32, nul: bool) -> bool {
+    let codetab = b"0123456789ABCDEF";
+    let mut v = v;
+    let mut digits = digits;
+
+    if nul {
+        where_[digits - 1] = 0;
+        digits -= 1;
+    }
+    while digits > 0 {
+        where_[digits - 1] = codetab[(v & ((1 << logbase) - 1)) as usize];
+        v >>= logbase;
+        digits -= 1;
+    }
+    v != 0
+}
+
+pub fn link_to_maj_min_ino(file_name: &str, st_dev_maj: u32, st_dev_min: u32, st_ino: u64) -> i32 {
+    if let Some(link_name) = find_inode_file(st_ino, st_dev_maj as u64, st_dev_min as u64) {
+        link_to_name(file_name, &link_name)
+    } else {
+        add_inode(
+            st_ino,
+            Some(file_name.to_string()),
+            st_dev_maj as u64,
+            st_dev_min as u64,
+        );
+        -1
+    }
+}
+pub fn link_to_name(link_name: &str, link_target: &str) -> i32 {
+    let link_name_path = Path::new(link_name);
+    let link_target_path = Path::new(link_target);
+
+    let mut res = fs::hard_link(link_target_path, link_name_path);
+
+    if res.is_err() && get_create_dir_flag() {
+        create_all_directories(link_name);
+        res = fs::hard_link(link_target_path, link_name_path);
+    }
+
+    match res {
+        Ok(_) => {
+            if get_verbose_flag() {
+                println!("{} linked to {}", link_target, link_name);
+            }
+            0
+        }
+        Err(e) => {
+            if get_link_flag() {
+                eprintln!("cannot link {} to {}: {}", link_target, link_name, e);
+            }
+            -e.raw_os_error().unwrap_or(1)
+        }
+    }
 }
 
 pub fn tape_empty_output_buffer(output_tape: &mut MutexGuard<TapeOutput>, out_file: &mut File) {
@@ -515,7 +634,7 @@ pub fn copy_files_tape_to_disk(
     }
 }
 
-pub fn disk_buffered_write(
+fn disk_buffered_write(
     output_tape: &mut MutexGuard<TapeOutput>,
     in_buf: &mut [u8],
     file: &mut File,
@@ -835,12 +954,6 @@ pub fn prepare_append(
     input_tape.in_buff = 0;
 }
 
-// fn inode_val_compare(val1: &InodeVal, val2: &InodeVal) -> bool {
-//     val1.inode == val2.inode
-//         && val1.major_num == val2.major_num
-//         && val1.minor_num == val2.minor_num
-// }
-
 fn find_inode_val(node_num: u64, major_num: u64, minor_num: u64) -> Option<InodeVal> {
     let sample = InodeVal {
         inode: node_num,
@@ -884,7 +997,7 @@ pub fn add_inode(
     }
     temp
 }
-pub fn get_inode_and_dev(hdr: &mut CpioFileStat, st: &std::fs::Metadata) {
+fn get_inode_and_dev(hdr: &mut CpioFileStat, st: &std::fs::Metadata) {
     unsafe {
         if get_renumber_inodes_option() {
             if st.nlink() > 1 {
@@ -952,19 +1065,7 @@ pub fn open_archive(file: &str) -> io::Result<File> {
     fd
 }
 
-// const MTOFFL:i16 =	7;	/* Rewind and put the drive offline (eject?).  */
-// pub fn tape_offline(file:  &mut File) {
-//     // let mut control = Mtop {
-//     //     mt_op: MTOFFL ,
-//     //     mt_count: 1,
-//     // };
-
-//     // Use the ioctl function
-//     // let _ = unsafe { rmtioctl(tape_des,MTIOCTOP, &mut control) }; // Ignore the result
-
-// }
-
-pub fn get_next_reel(tape_des: &File) {
+fn get_next_reel(tape_des: &File) {
     let mut reel_number;
     unsafe {
         reel_number = REEL_NUMBER;
@@ -1075,44 +1176,53 @@ pub fn get_next_reel(tape_des: &File) {
 }
 
 pub fn set_new_media_message(message: &str) {
-    let _p = message.chars();
-    let mut prev_was_percent = false;
-    let mut d_found_at = None;
-
-    for (index, c) in message.chars().enumerate() {
-        if c == 'd' && prev_was_percent {
-            d_found_at = Some(index);
-            break;
-        }
-        prev_was_percent = c == '%';
-    }
-
-    if d_found_at.is_none() {
-        set_args_new_media_message(Some(xstrdup(message).to_string()));
+    if let Some(pos) = message.find("%d") {
+        let prefix = &message[..pos];
+        let after = &message[pos + 2..];
+        set_new_media_message_with_number(Some(prefix.to_string()));
+        set_new_media_message_after_number(Some(after.to_string()));
     } else {
-        let d_index = d_found_at.unwrap();
-        let length = d_index - 1;
-
-        unsafe {
-            let mut buf = xmalloc(length + 1);
-            for (i, c) in message[..length].chars().enumerate() {
-                buf[i] = c as u8;
-            }
-            buf[length] = 0; // Null-terminate
-
-            set_new_media_message_with_number(Some(String::from_utf8_unchecked(buf)));
-            //new_media_message_with_number = Some(String::from_utf8_unchecked(buf));
-
-            let after_d = &message[d_index + 1..];
-            let after_d_len = after_d.len();
-            let mut after_buf = xmalloc(after_d_len + 1);
-            for (i, c) in after_d.chars().enumerate() {
-                after_buf[i] = c as u8;
-            }
-            after_buf[after_d_len] = 0; // Null-terminate
-            set_new_media_message_after_number(Some(String::from_utf8_unchecked(after_buf)));
-        }
+        set_args_new_media_message(Some(message.to_string()));
     }
+
+    // let _p = message.chars();
+    // let mut prev_was_percent = false;
+    // let mut d_found_at = None;
+
+    // for (index, c) in message.chars().enumerate() {
+    //     if c == 'd' && prev_was_percent {
+    //         d_found_at = Some(index);
+    //         break;
+    //     }
+    //     prev_was_percent = c == '%';
+    // }
+
+    // if d_found_at.is_none() {
+    //     set_args_new_media_message(Some(xstrdup(message).to_string()));
+    // } else {
+    //     let d_index = d_found_at.unwrap();
+    //     let length = d_index - 1;
+
+    //     unsafe {
+    //         let mut buf = xmalloc(length + 1);
+    //         for (i, c) in message[..length].chars().enumerate() {
+    //             buf[i] = c as u8;
+    //         }
+    //         buf[length] = 0; // Null-terminate
+
+    //         set_new_media_message_with_number(Some(String::from_utf8_unchecked(buf)));
+    //         //new_media_message_with_number = Some(String::from_utf8_unchecked(buf));
+
+    //         let after_d = &message[d_index + 1..];
+    //         let after_d_len = after_d.len();
+    //         let mut after_buf = xmalloc(after_d_len + 1);
+    //         for (i, c) in after_d.chars().enumerate() {
+    //             after_buf[i] = c as u8;
+    //         }
+    //         after_buf[after_d_len] = 0; // Null-terminate
+    //         set_new_media_message_after_number(Some(String::from_utf8_unchecked(after_buf)));
+    //     }
+    // }
 }
 
 fn buf_all_zeros(buf: &[u8], size: usize) -> bool {
@@ -1201,14 +1311,14 @@ fn sparse_write(fildes: &mut File, buf: &[u8], nbytes: usize, flush: bool) -> us
     nwritten + seek_count as usize
 }
 
-pub fn cpio_uid(uid: u32) -> u32 {
+fn cpio_uid(uid: u32) -> u32 {
     if get_set_owner_flag() {
         get_set_owner()
     } else {
         uid
     }
 }
-pub fn cpio_gid(uid: u32) -> u32 {
+fn cpio_gid(uid: u32) -> u32 {
     if get_set_group_flag() {
         get_set_group()
     } else {
@@ -1261,54 +1371,7 @@ pub fn stat_to_cpio(st: &mut Metadata, hdr: &mut CpioFileStat) {
     hdr.c_tar_linkname = None;
 }
 
-// // 在rust 中 metadata 是只读的
-// pub  fn cpio_to_stat(st: *mut stat, hdr: *mut CpioFileStat) {
-//     unsafe  {
-//         libc::memset(st as *mut libc::c_void, 0, size_of::<stat>());
-//     (*st).st_dev = makedev((*hdr).c_dev_maj as u32, (*hdr).c_dev_min);
-//     (*st).st_ino = (*hdr).c_ino;
-//     (*st).st_mode = (*hdr).c_mode & 0o777;
-
-//     if (*hdr).c_mode & CP_IFREG != 0 {
-//         (*st).st_mode |= S_IFREG;
-//     } else if (*hdr).c_mode & CP_IFDIR != 0 {
-//         (*st).st_mode |= S_IFDIR;
-//     }
-
-//     #[cfg(target_os = "linux")]
-//     {
-//         if (*hdr).c_mode & CP_IFBLK != 0 {
-//             (*st).st_mode |= S_IFBLK;
-//         }
-//         if (*hdr).c_mode & CP_IFCHR != 0 {
-//             (*st).st_mode |= S_IFCHR;
-//         }
-//         // if (*hdr).c_mode & CP_IFIFO != 0 {
-//         //     (*st).st_mode |= S_IFFIFO;
-//         // }
-//         if (*hdr).c_mode & CP_IFLNK != 0 {
-//             (*st).st_mode |= S_IFLNK;
-//         }
-//         if (*hdr).c_mode & CP_IFSOCK != 0 {
-//             (*st).st_mode |= S_IFSOCK;
-//         }
-//         // if (*hdr).c_mode & CP_IFNWK != 0 {
-//         //     (*st).st_mode |= S_IFNWK;
-//         // }
-//     }
-
-//     (*st).st_nlink = (*hdr).c_nlink as u64;
-//     (*st).st_uid = cpio_uid((*hdr).c_uid);
-//     (*st).st_gid = cpio_gid((*hdr).c_gid);
-//     (*st).st_rdev = makedev((*hdr).c_rdev_maj as u32 , (*hdr).c_rdev_min);
-//     (*st).st_mtime = (*hdr).c_mtime;
-//     (*st).st_size = (*hdr).c_filesize;
-
-//     }
-
-// }
-
-pub fn fchown_or_chown(
+fn fchown_or_chown(
     file: Option<&File>,
     name: &Path,
     uid: uid_t,
@@ -1346,7 +1409,7 @@ pub fn fchown_or_chown(
     }
 }
 
-pub fn fchmod_or_chmod(file: Option<&File>, name: &Path, mode: mode_t) -> std::io::Result<()> {
+fn fchmod_or_chmod(file: Option<&File>, name: &Path, mode: mode_t) -> std::io::Result<()> {
     if let Some(file_ref) = file {
         let fd = file_ref.as_raw_fd();
         let result = unsafe { fchmod(fd, mode) };
@@ -1479,7 +1542,7 @@ pub fn cpio_safer_name_suffix(
     }
 }
 
-pub fn delay_cpio_set_stat(file_stat: &CpioFileStat, invert_permissions: mode_t) {
+fn delay_cpio_set_stat(file_stat: &CpioFileStat, invert_permissions: mode_t) {
     if let Ok(mut head) = DELAYED_SET_STAT_HEAD.lock() {
         let new_node = Arc::new(Mutex::new(DelayedSetStat {
             stat: file_stat.clone(),
@@ -1491,7 +1554,7 @@ pub fn delay_cpio_set_stat(file_stat: &CpioFileStat, invert_permissions: mode_t)
     }
 }
 
-pub fn delay_set_stat(file_name: &str, st: &mut Metadata, invert_permissions: u32) {
+fn delay_set_stat(file_name: &str, st: &mut Metadata, invert_permissions: u32) {
     let mut fs = CpioFileStat::new();
 
     stat_to_cpio(st, &mut fs);
@@ -1501,7 +1564,7 @@ pub fn delay_set_stat(file_name: &str, st: &mut Metadata, invert_permissions: u3
     delay_cpio_set_stat(&fs, invert_permissions);
 }
 #[allow(dead_code)]
-pub fn repair_inter_delayed_set_stat(dir_stat_info: &mut Metadata) -> i32 {
+fn repair_inter_delayed_set_stat(dir_stat_info: &mut Metadata) -> i32 {
     let head = match DELAYED_SET_STAT_HEAD.lock() {
         Ok(guard) => guard,
         Err(_) => return -1,
@@ -1548,7 +1611,7 @@ pub fn repair_inter_delayed_set_stat(dir_stat_info: &mut Metadata) -> i32 {
     1
 }
 
-pub fn repair_delayed_set_stat(file_hdr: &mut CpioFileStat) -> i32 {
+fn repair_delayed_set_stat(file_hdr: &mut CpioFileStat) -> i32 {
     let head = match DELAYED_SET_STAT_HEAD.lock() {
         Ok(guard) => guard,
         Err(_) => return -1,
@@ -1591,7 +1654,7 @@ pub fn apply_delayed_set_stat() {
         *head = borrowed_node.next.clone();
     }
 }
-pub fn make_path(argpath: &str, owner: i32, group: i32, verbose_fmt_string: Option<&str>) -> i32 {
+fn make_path(argpath: &str, owner: i32, group: i32, verbose_fmt_string: Option<&str>) -> i32 {
     // 验证和清理路径
     let safe_path = match validate_and_sanitize_path(argpath) {
         Ok(path) => path,
@@ -1636,125 +1699,7 @@ pub fn make_path(argpath: &str, owner: i32, group: i32, verbose_fmt_string: Opti
     }
 }
 
-// pub fn make_path(argpath: &str, owner: i32, group: i32, verbose_fmt_string: Option<&str>) -> i32 {
-//     let dirpath = argpath.to_string();
-//     let path = Path::new(&dirpath);
-
-//     match fs::create_dir_all(path) {
-//         Ok(_) => {
-//             return 0;
-//         },
-//         Err(e) => {
-//             error(
-//                 0,
-//                 e.raw_os_error().unwrap_or(0),
-//                 format_args!("cannot make directory `{}`", dirpath),
-//             );
-//             return 1;
-//         },
-//     }
-
-// if fs::metadata(path).is_err() {
-//     let tmpmode = MODE_RWX & !get_newdir_umask();
-//     let invert_permissions = if std::env::var("USER").unwrap_or_default() == "root" {
-//         0
-//     } else {
-//         MODE_WXUSR & !tmpmode
-//     };
-
-//     let mut slash = dirpath.clone();
-//     if slash.starts_with('/') {
-//         slash = slash.trim_start_matches('/').to_string();
-//     }
-
-//     let mut current_dir = String::new();
-//     for component in slash.split('/') {
-//         current_dir.push_str(component);
-//         let current_path = Path::new(&current_dir);
-
-//         if fs::metadata(current_path).is_err() {
-//             let mut builder = fs::DirBuilder::new();
-//             builder.mode(tmpmode ^ invert_permissions);
-
-//             if let Err(e) = builder.create(current_path) {
-//                 error(
-//                     0,
-//                     e.raw_os_error().unwrap_or(0),
-//                     format_args!("cannot make directory `{}`", current_dir),
-//                 );
-//                 return 1;
-//             } else {
-//                 if let Some(fmt_str) = verbose_fmt_string {
-//                     error(0, 0, format_args!("{}{}", fmt_str, current_dir));
-//                 }
-
-//                 if let Ok(stats) = fs::metadata(current_path) {
-//                     let mut mutable_stats = stats;
-//                     if owner != -1 {
-//                         // mutable_stats.st_uid = owner as u32; // cannot mutate
-//                     }
-//                     if group != -1 {
-//                         // mutable_stats.st_gid = group as u32; // cannot mutate
-//                     }
-
-//                     delay_set_stat(&current_dir, &mut mutable_stats, invert_permissions);
-//                 } else {
-//                     stat_error(&current_dir);
-//                 }
-//             }
-//         } else if !fs::metadata(current_path).unwrap().is_dir() {
-//             error(
-//                 0,
-//                 0,
-//                 format_args!("`{}` exists but is not a directory", current_dir),
-//             );
-//             return 1;
-//         }
-
-//         current_dir.push('/');
-//     }
-
-//     if let Err(e) = fs::create_dir_all(path) {
-//         if e.raw_os_error().unwrap_or(0) != 17
-//             || fs::metadata(path).is_err()
-//             || !fs::metadata(path).unwrap().is_dir()
-//         {
-//             error(
-//                 0,
-//                 e.raw_os_error().unwrap_or(0),
-//                 format_args!("cannot make directory `{}`", dirpath),
-//             );
-//             return 1;
-//         }
-//     } else if let Ok(stats) = fs::metadata(path) {
-//         let mut mutable_stats = stats;
-//         if owner != -1 {
-//             // mutable_stats.st_uid = owner as u32; // cannot mutate
-//         }
-//         if group != -1 {
-//             // mutable_stats.st_gid = group as u32; // cannot mutate
-//         }
-//         delay_set_stat(&dirpath, &mut mutable_stats, invert_permissions);
-//     } else {
-//         stat_error(&dirpath);
-//     }
-
-//     if let Some(fmt_str) = verbose_fmt_string {
-//         error(0, 0, format_args!("{}{}", fmt_str, dirpath));
-//     }
-// } else if !fs::metadata(path).unwrap().is_dir() {
-//     error(
-//         0,
-//         0,
-//         format_args!("`{}` exists but is not a directory", dirpath),
-//     );
-//     return 1;
-// }
-
-// 0
-//}
-
-pub fn cpio_mkdir(file_hdr: &mut CpioFileStat, setstat_delayed: &mut bool) -> std::io::Result<()> {
+fn cpio_mkdir(file_hdr: &mut CpioFileStat, setstat_delayed: &mut bool) -> std::io::Result<()> {
     let mode = file_hdr.c_mode;
     let c_name = file_hdr.get_c_name();
 
