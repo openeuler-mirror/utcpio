@@ -6,13 +6,20 @@ import tempfile
 import unittest
 import hashlib
 import time
+import shlex
 
 class TestCpio(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        cls.cpio_bin = os.path.join(project_root, "target", "debug", "utcpio")
+        if not os.path.exists(cls.cpio_bin):
+            raise unittest.SkipTest("utcpio 可执行文件不存在，请先编译项目")
+        cls.cpio_cmd = shlex.quote(cls.cpio_bin)
+        
         # 创建测试目录和文件
         cls.test_dir = tempfile.mkdtemp()
-        cls.archive_file = os.path.join(cls.test_dir, "test.cpio")
+        cls.archive_file = os.path.join(cls.test_dir, "test.utcpio")
         cls.extract_dir = os.path.join(cls.test_dir, "extracted")
         cls.source_dir = os.path.join(cls.test_dir, "source")
         cls.destination_dir = os.path.join(cls.test_dir, "destination")
@@ -144,9 +151,13 @@ class TestCpio(unittest.TestCase):
     def test_1_create_archive_copy_out(self):
         """测试1: 创建归档 (copy-out 模式) - find <目录> | cpio -o[选项] > <归档文件>"""
         print("\n=== 测试1: 创建归档 (copy-out 模式) ===")
+
+        parent = shlex.quote(os.path.dirname(self.source_dir))
+        basename = shlex.quote(os.path.basename(self.source_dir))
+        archive_file = shlex.quote(self.archive_file)
         
-        # 使用find和cpio创建归档
-        cmd = f"find {self.source_dir} | cpio -o > {self.archive_file}"
+        # 使用find和cpio创建归档（改为在 source 父目录下运行，存入相对路径）
+        cmd = f"(cd {parent} && find {basename} | {self.cpio_cmd} -o > {archive_file})"
         print(f"执行命令: {cmd}")
         
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
@@ -167,7 +178,8 @@ class TestCpio(unittest.TestCase):
         self.test_1_create_archive_copy_out()
         
         # 列出归档内容
-        cmd = f"cpio -itv < {self.archive_file}"
+        archive_file = shlex.quote(self.archive_file)
+        cmd = f"{self.cpio_cmd} -itv < {archive_file}"
         print(f"执行命令: {cmd}")
         
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
@@ -205,7 +217,9 @@ class TestCpio(unittest.TestCase):
                     os.remove(item_path)
         
         # 提取归档
-        cmd = f"cd {self.extract_dir} && cpio -idmv < {self.archive_file}"
+        extract_dir = shlex.quote(self.extract_dir)
+        archive_file = shlex.quote(self.archive_file)
+        cmd = f"cd {extract_dir} && {self.cpio_cmd} -idmv < {archive_file}"
         print(f"执行命令: {cmd}")
         
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
@@ -247,7 +261,10 @@ class TestCpio(unittest.TestCase):
         os.makedirs(self.destination_dir, exist_ok=True)
         
         # 使用copy-pass模式复制文件
-        cmd = f"find {self.source_dir} -print | cpio -pvd {self.destination_dir}"
+        parent = shlex.quote(os.path.dirname(self.source_dir))
+        basename = shlex.quote(os.path.basename(self.source_dir))
+        destination_dir = shlex.quote(self.destination_dir)
+        cmd = f"(cd {parent} && find {basename} -print | {self.cpio_cmd} -pvd {destination_dir})"
         print(f"执行命令: {cmd}")
         
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
@@ -289,7 +306,10 @@ class TestCpio(unittest.TestCase):
         os.makedirs(hardlink_dest, exist_ok=True)
         
         # 创建硬链接而不是复制文件
-        cmd = f"find {self.source_dir} -print | cpio -plvd {hardlink_dest}"
+        parent = shlex.quote(os.path.dirname(self.source_dir))
+        basename = shlex.quote(os.path.basename(self.source_dir))
+        hardlink_dest_quoted = shlex.quote(hardlink_dest)
+        cmd = f"(cd {parent} && find {basename} -print | {self.cpio_cmd} -plvd {hardlink_dest_quoted})"
         print(f"执行命令: {cmd}")
         
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
@@ -319,7 +339,10 @@ class TestCpio(unittest.TestCase):
         ascii_archive = os.path.join(self.test_dir, "test_ascii.cpio")
         
         # 创建ASCII格式的归档
-        cmd = f"find {self.source_dir} | cpio -oc > {ascii_archive}"
+        parent = shlex.quote(os.path.dirname(self.source_dir))
+        basename = shlex.quote(os.path.basename(self.source_dir))
+        ascii_archive_quoted = shlex.quote(ascii_archive)
+        cmd = f"(cd {parent} && find {basename} | {self.cpio_cmd} -oc > {ascii_archive_quoted})"
         print(f"执行命令: {cmd}")
         
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
@@ -357,7 +380,9 @@ class TestCpio(unittest.TestCase):
                     os.remove(item_path)
         
         # 提取归档并保留修改时间
-        cmd = f"cd {time_extract_dir} && cpio -idmv < {self.archive_file}"
+        time_extract_dir_quoted = shlex.quote(time_extract_dir)
+        archive_file = shlex.quote(self.archive_file)
+        cmd = f"cd {time_extract_dir_quoted} && {self.cpio_cmd} -idmv < {archive_file}"
         print(f"执行命令: {cmd}")
         
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
@@ -381,7 +406,10 @@ class TestCpio(unittest.TestCase):
         specific_archive = os.path.join(self.test_dir, "specific.cpio")
         
         # 使用-O选项指定输出文件
-        cmd = f"find {self.source_dir} | cpio -o -O {specific_archive}"
+        parent = shlex.quote(os.path.dirname(self.source_dir))
+        basename = shlex.quote(os.path.basename(self.source_dir))
+        specific_archive_quoted = shlex.quote(specific_archive)
+        cmd = f"(cd {parent} && find {basename} | {self.cpio_cmd} -o -O {specific_archive_quoted})"
         print(f"执行命令: {cmd}")
         
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
@@ -419,7 +447,9 @@ class TestCpio(unittest.TestCase):
                     os.remove(item_path)
         
         # 使用-I选项指定输入文件
-        cmd = f"cd {input_extract_dir} && cpio -idmv -I {self.archive_file}"
+        input_extract_dir_quoted = shlex.quote(input_extract_dir)
+        archive_file = shlex.quote(self.archive_file)
+        cmd = f"cd {input_extract_dir_quoted} && {self.cpio_cmd} -idmv -I {archive_file}"
         print(f"执行命令: {cmd}")
         
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
@@ -439,7 +469,8 @@ class TestCpio(unittest.TestCase):
         self.test_1_create_archive_copy_out()
         
         # 使用详细输出模式列出归档内容
-        cmd = f"cpio -itv < {self.archive_file}"
+        archive_file = shlex.quote(self.archive_file)
+        cmd = f"{self.cpio_cmd} -itv < {archive_file}"
         print(f"执行命令: {cmd}")
         
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
